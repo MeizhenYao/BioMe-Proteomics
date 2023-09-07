@@ -1,0 +1,667 @@
+---
+title: "BioMe_proteome_EDA"
+author: "Meizhen Yao"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: united
+    highlight: tango
+    df_print: paged
+    fig_caption: yes
+    fig_height: 7
+    fig_width: 10
+    number_sections: yes
+    toc: yes
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+    self_contained: yes
+    code_folding: hide
+    toc_depth: 6
+header-includes: \usepackage{multirow}
+editor_options: 
+  chunk_output_type: console
+---
+
+<style type="text/css">
+body{
+  /*font-family: Helvetica;*/
+  font-size: 12pt;
+}
+</style>
+
+
+```{r setup, include=FALSE}
+options(digits = 4)
+knitr::opts_chunk$set(echo = TRUE,tidy=TRUE,cache=F,warning = FALSE)
+# suppress warning messages for final rendering
+old.warn <- getOption("warn")
+options(qwraps2_markup = "markdown")
+
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(ggpubr)
+library(data.table)
+library(readr)
+library(readxl)
+library(formattable)
+library(ComplexHeatmap)
+library(OlinkAnalyze)
+library(gtsummary)
+library(flextable)
+library(ggplotify)
+library(pheatmap)
+library(plotly)
+library(gapminder)
+library(manipulateWidget)
+library(ggfortify)
+library(reactable)
+library(mice)
+library(naniar)
+library(WGCNA)
+
+
+## import data
+BioMe_proteome <- fread("C:/Users/yaom03/OneDrive - The Mount Sinai Hospital/Documents/Projects/BioMe/proteome/input/Q-00771_Loos_NPX_2022-05-03/Q-00771_Loos_NPX_2022-05-03.txt")
+assay_list<- read_excel("C:/Users/yaom03/OneDrive - The Mount Sinai Hospital/Documents/Projects/BioMe/proteome/input/assay-list-olink-explore-3072.xlsx", sheet = "data")
+
+## remove controls
+BioMe_proteome_nocontrol<- BioMe_proteome %>% 
+                           filter(!grepl("CONTROL", SampleID))
+
+
+## combine data with annotation
+str(BioMe_proteome_nocontrol)
+str(assay_list)
+
+colnames(assay_list)[1]<- "UniProt"
+colnames(assay_list)[2]<- "Protein_name"
+colnames(assay_list)[3]<- "Gene_name"
+colnames(assay_list)[4]<- "Panel"
+
+
+BioMe_proteome_protname<- BioMe_proteome_nocontrol %>% 
+                          left_join(assay_list, by = c("Panel", "UniProt"))
+
+
+colSums(is.na(BioMe_proteome_protname))
+
+
+#------------------------------------------- assign WARN and LOD indicator column
+BioMe_proteome_protname<- BioMe_proteome_protname %>% 
+                          mutate(Warning = if_else(QC_Warning == "PASS" & Assay_Warning == "PASS", "PASS", "WARN"),
+                                 LOD_ind = if_else(NPX >= LOD, 1, 0)) 
+
+
+#------------------------------------------- transpose to wide format
+BioMe_proteome_wide<- BioMe_proteome_protname %>% 
+                      select(SampleID, OlinkID, NPX) %>% 
+                      pivot_wider(
+                        names_from = OlinkID,
+                        values_from = NPX
+                      )
+
+```
+
+
+```{r}
+sample<- c("352")
+protein<- c(2943)
+panel<- c(8)
+
+data<- data.frame(sample,
+                  protein,
+                  panel)
+flextable(data)
+```
+
+# Data
+```{r}
+
+BioMe_proteome_protein_data_table<- BioMe_proteome_protname %>% 
+                                    select(Panel, SampleID, OlinkID, Gene_name, Protein_name) %>% 
+                                    group_by(Panel) %>% 
+                                    as.data.frame() %>% 
+                                    reactable(groupBy = c("Panel"))
+
+BioMe_proteome_protein_data_table
+
+
+```
+
+
+
+# Sample exploratory
+## Panel & proteins
+```{r}
+
+BioMe_proteome_protein_panel_table<- BioMe_proteome_protname %>% 
+                                     select(Panel, Protein_name, Gene_name, OlinkID) %>% 
+                                     group_by(Panel, Protein_name, Gene_name, OlinkID) %>% 
+                                     summarise(Sample_count=n())%>%
+                                     as.data.frame() %>% 
+                                     reactable(groupBy = c("Panel"))
+
+BioMe_proteome_protein_panel_table
+
+
+```
+ 
+
+## Panel & Samples
+```{r}
+
+BioMe_proteome_sample_table<- BioMe_proteome_protname %>% 
+                                     select(Panel, SampleID) %>% 
+                                     group_by(Panel, SampleID) %>% 
+                                     arrange(by_group = SampleID) %>% 
+                                     summarise(protein_count=n())%>% 
+              reactable(groupBy = "Panel") 
+
+
+BioMe_proteome_sample_table
+
+```
+
+## Duplicate assay
+```{r}
+
+BioMe_proteome_protein_dup_table<- BioMe_proteome_protname %>% 
+                                   select(Panel, Protein_name) %>% 
+                                   distinct() %>% 
+                                   group_by(Protein_name) %>% 
+                                   summarise(protein_dup=n()) %>% 
+                                   reactable(groupBy = "protein_dup")
+
+BioMe_proteome_protein_dup_table
+
+
+BioMe_proteome_protein_dup_detail<- BioMe_proteome_protname %>% 
+                                    select(Panel, Protein_name) %>% 
+                                    distinct() %>% 
+                                    group_by(Protein_name) %>% 
+                                    summarise(protein_dup=n()) %>% 
+                                    filter(protein_dup!=1)
+
+dup_details<- BioMe_proteome_protein_dup_detail %>% 
+              left_join((BioMe_proteome_protname %>% 
+                                   select(Panel, Protein_name) %>% 
+                                   distinct()), by="Protein_name") %>% 
+              reactable(groupBy = "Protein_name") 
+              
+dup_details
+
+```
+
+
+
+
+# Data quality
+## Checking missing
+```{r, warning=FALSE,message=FALSE}
+
+BioMe_proteome_cardio_wide<- BioMe_proteome_protname %>% 
+                             filter(Panel == "Cardiometabolic") %>% 
+                             select(SampleID, PlateID, OlinkID, NPX) %>% 
+                             pivot_wider(
+                               names_from = OlinkID,
+                               values_from = NPX
+                             )
+
+vis_miss(BioMe_proteome_cardio_wide) +
+  labs(title="Cardiometabolic")
+
+BioMe_proteome_cardio2_wide<- BioMe_proteome_protname %>% 
+                             filter(Panel == "Cardiometabolic_II") %>% 
+                             select(SampleID, OlinkID, NPX) %>% 
+                             pivot_wider(
+                               names_from = OlinkID,
+                               values_from = NPX
+                             )
+
+vis_miss(BioMe_proteome_cardio2_wide) +
+  labs(title="Cardiometabolic_II")
+
+
+BioMe_proteome_inflam_wide<- BioMe_proteome_protname %>% 
+                             filter(Panel == "Inflammation") %>% 
+                             select(SampleID, OlinkID, NPX) %>% 
+                             pivot_wider(
+                               names_from = OlinkID,
+                               values_from = NPX
+                             )
+
+vis_miss(BioMe_proteome_inflam_wide) +
+  labs(title="Inflammation")
+
+
+
+BioMe_proteome_inflam2_wide<- BioMe_proteome_protname %>% 
+                             filter(Panel == "Inflammation_II") %>% 
+                             select(SampleID, OlinkID, NPX) %>% 
+                             pivot_wider(
+                               names_from = OlinkID,
+                               values_from = NPX
+                             )
+
+vis_miss(BioMe_proteome_inflam2_wide) +
+  labs(title="Inflammation_II")
+
+
+BioMe_proteome_oncology_wide<- BioMe_proteome_protname %>% 
+                             filter(Panel == "Oncology") %>% 
+                             select(SampleID, OlinkID, NPX) %>% 
+                             pivot_wider(
+                               names_from = OlinkID,
+                               values_from = NPX
+                             )
+
+vis_miss(BioMe_proteome_oncology_wide) +
+  labs(title="Oncology")
+
+
+
+BioMe_proteome_Oncology2_wide<- BioMe_proteome_protname %>% 
+                             filter(Panel == "Oncology_II") %>% 
+                             select(SampleID, OlinkID, NPX) %>% 
+                             pivot_wider(
+                               names_from = OlinkID,
+                               values_from = NPX
+                             )
+
+vis_miss(BioMe_proteome_Oncology2_wide) +
+  labs(title="Oncology_II")
+
+
+BioMe_proteome_Neurology_wide<- BioMe_proteome_protname %>% 
+                             filter(Panel == "Neurology") %>% 
+                             select(SampleID, OlinkID, NPX) %>% 
+                             pivot_wider(
+                               names_from = OlinkID,
+                               values_from = NPX
+                             )
+
+vis_miss(BioMe_proteome_Neurology_wide) +
+  labs(title="Neurology")
+
+
+
+BioMe_proteome_Neurology2_wide<- BioMe_proteome_protname %>% 
+                             filter(Panel == "Neurology_II") %>% 
+                             select(SampleID, OlinkID, NPX) %>% 
+                             pivot_wider(
+                               names_from = OlinkID,
+                               values_from = NPX
+                             )
+
+vis_miss(BioMe_proteome_Neurology2_wide) +
+  labs(title="Neurology_II")
+```
+
+
+## Checking QC Warning & LOD
+### Details for each protein
+```{r, warning=FALSE,message=FALSE}
+
+BioMe_proteome_QC_data<- BioMe_proteome_protname %>% 
+                          select(Panel, Protein_name, Gene_name, OlinkID, Warning) %>% 
+                          group_by(Panel, Protein_name, Gene_name, OlinkID, Warning) %>% 
+                          summarise(Warning_num=n())%>%
+                          mutate(Warning_sign = case_when(Warning=="PASS" & Warning_num==352 ~ 0, 
+                                                          Warning=="PASS" & Warning_num!=352 ~ NA,
+                                                          Warning=="WARN" ~ Warning_num)) %>% 
+                          filter(is.na(Warning_sign) == FALSE) %>% 
+                          mutate(Warning_percent = Warning_sign/352) %>% 
+                          select(Panel, Protein_name, Gene_name, OlinkID, Warning_percent) %>% 
+                          as.data.frame() 
+
+
+
+
+BioMe_proteome_LOD_data<- BioMe_proteome_protname %>% 
+                          select(Panel, Protein_name, Gene_name, OlinkID, LOD_ind) %>% 
+                          group_by(Panel, Protein_name, Gene_name, OlinkID, LOD_ind) %>% 
+                          summarise(LOD_num=n())%>%
+                          mutate(LOD_sign = case_when(LOD_ind==0 & LOD_num==352 ~ 0, 
+                                                          LOD_ind==0 & LOD_num!=352 ~ NA,
+                                                          LOD_ind==1 ~ LOD_num)) %>% 
+                          filter(is.na(LOD_sign) == FALSE) %>% 
+                          mutate(Percentage_above_LOD = LOD_sign/352) %>% 
+                          select(Panel, Protein_name, Gene_name, OlinkID, Percentage_above_LOD) %>% 
+                          as.data.frame() 
+
+BioMe_proteome_check_data<- BioMe_proteome_QC_data %>% 
+                            inner_join(BioMe_proteome_LOD_data, by=c('Panel', 'Protein_name', 'Gene_name', 'OlinkID'))
+
+
+BioMe_proteome_check_table<- BioMe_proteome_check_data %>% 
+                             reactable(groupBy = c("Panel"), filterable = TRUE,  
+                                    columns = list(Warning_percent = colDef(format = colFormat(percent = TRUE, digits = 1),
+                                                                                 style = function(Warning_percent) {
+                                                                                         if (Warning_percent > 0.25) {
+                                                                                             color <- "#e00000"
+                                                                                         } else if (Warning_percent <= 0.25) {
+                                                                                             color <- "#008000"
+                                                                                         } 
+                                                                                           list(color = color, fontWeight = "bold")
+                                                                                         }),
+                                                   Percentage_above_LOD = colDef(format = colFormat(percent = TRUE, digits = 1),
+                                                                                 style = function(Percentage_above_LOD) {
+                                                                                         if (Percentage_above_LOD > 0.25) {
+                                                                                             color <- "#008000"
+                                                                                         } else if (Percentage_above_LOD <= 0.25) {
+                                                                                             color <- "#e00000"
+                                                                                         } 
+                                                                                           list(color = color, fontWeight = "bold")
+                                                                                         })))
+
+
+BioMe_proteome_check_table
+
+BioMe_proteome_warn_num<- BioMe_proteome_check_data %>% 
+                           filter(Warning_percent > 0.25) %>%
+                           select('Panel', 'Protein_name', 'Gene_name', 'OlinkID', 'Warning_percent') %>% 
+                           reactable(groupBy = c("Panel"), 
+                                     columns = list(
+                                       Warning_percent = colDef(format = colFormat(percent = TRUE, digits = 1)),
+                                       Protein_name = colDef(footer = function(values) sprintf("Total = %d", length(values)))))
+                           
+BioMe_proteome_warn_num                          
+
+
+
+BioMe_proteome_LOD_num<- BioMe_proteome_check_data %>% 
+                           filter(Percentage_above_LOD < 0.25) %>%
+                           select('Panel', 'Protein_name', 'Gene_name', 'OlinkID', 'Percentage_above_LOD') %>% 
+                           reactable(groupBy = c("Panel"),
+                                     columns = list(
+                                       Percentage_above_LOD = colDef(format = colFormat(percent = TRUE, digits = 1)),
+                                       Protein_name = colDef(footer = function(values) sprintf("Total = %d", length(values)))))
+                           
+BioMe_proteome_LOD_num  
+
+BioMe_proteome_remove<- BioMe_proteome_check_data %>% 
+                        filter(Warning_percent > 0.25 | Percentage_above_LOD < 0.25)
+
+write.table(BioMe_proteome_remove, "~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_warn_remove.txt", row.names = FALSE)
+
+```
+
+### Details for each sample
+```{r, warning=FALSE,message=FALSE}
+BioMe_proteome_protname$Warning<- factor(BioMe_proteome_protname$Warning, 
+                                         levels = c("PASS", "WARN"))
+BioMe_proteome_protname$LOD_ind<- factor(BioMe_proteome_protname$LOD_ind, 
+                                         levels = c(1, 0))
+
+BioMe_sample_QC_data<- BioMe_proteome_protname  %>% 
+                          group_by(SampleID) %>% 
+                          summarise(N = n()) %>% 
+                          inner_join((BioMe_proteome_protname %>% 
+                          group_by(SampleID, Warning, .drop = FALSE) %>% 
+                          summarise(Warning_num=n())), by=c('SampleID')) %>% 
+                          filter(Warning == "WARN") %>% 
+                          mutate(Warning_percent = Warning_num/N) %>% 
+                          select(SampleID, Warning_percent) %>% 
+                          as.data.frame() 
+
+
+
+
+BioMe_sample_LOD_data<-  BioMe_proteome_protname  %>% 
+                          group_by(SampleID) %>% 
+                          summarise(N = n()) %>% 
+                          inner_join((BioMe_proteome_protname %>% 
+                          group_by(SampleID, LOD_ind, .drop = FALSE) %>% 
+                          summarise(LOD_num=n())), by=c('SampleID')) %>% 
+                          filter(LOD_ind == 1) %>% 
+                          mutate(Percentage_above_LOD = LOD_num/N) %>% 
+                          select(SampleID, Percentage_above_LOD) %>% 
+                          as.data.frame() 
+
+BioMe_sample_check_data<- BioMe_sample_QC_data %>% 
+                            inner_join(BioMe_sample_LOD_data, by=c('SampleID'))
+
+
+BioMe_sample_check_table<- BioMe_sample_check_data %>% 
+                             reactable(filterable = TRUE,  
+                                    columns = list(Warning_percent = colDef(format = colFormat(percent = TRUE, digits = 1),
+                                                                                 style = function(Warning_percent) {
+                                                                                         if (Warning_percent > 0.25) {
+                                                                                             color <- "#e00000"
+                                                                                         } else if (Warning_percent <= 0.25) {
+                                                                                             color <- "#008000"
+                                                                                         } 
+                                                                                           list(color = color, fontWeight = "bold")
+                                                                                         }),
+                                                   Percentage_above_LOD = colDef(format = colFormat(percent = TRUE, digits = 1),
+                                                                                 style = function(Percentage_above_LOD) {
+                                                                                         if (Percentage_above_LOD > 0.5) {
+                                                                                             color <- "#008000"
+                                                                                         } else if (Percentage_above_LOD <= 0.5) {
+                                                                                             color <- "#e00000"
+                                                                                         } 
+                                                                                           list(color = color, fontWeight = "bold")
+                                                                                         })))
+
+
+
+BioMe_sample_check_table
+
+BioMe_sample_warn_num<- BioMe_sample_check_data %>% 
+                           filter(Warning_percent > 0.5) %>%
+                           select('SampleID', 'Warning_percent') %>% 
+                           reactable(columns = list(
+                                       Warning_percent = colDef(format = colFormat(percent = TRUE, digits = 1)),
+                                       SampleID = colDef(footer = function(values) sprintf("Total = %d", length(values)))))
+                           
+BioMe_sample_warn_num                          
+
+
+
+BioMe_sample_LOD_num<- BioMe_sample_check_data %>% 
+                           filter(Percentage_above_LOD < 0.5) %>%
+                           select('SampleID', 'Percentage_above_LOD') %>% 
+                           reactable(columns = list(
+                                       Percentage_above_LOD = colDef(format = colFormat(percent = TRUE, digits = 1)),
+                                       SampleID = colDef(footer = function(values) sprintf("Total = %d", length(values)))))
+                           
+BioMe_sample_LOD_num  
+
+
+```
+
+### Total proteins & samples
+```{r, warning=FALSE,message=FALSE}
+## pattern
+BioMe_proteome_protname_QC<- BioMe_proteome_protname %>% 
+                             mutate(value = if_else(Warning == "PASS", NPX, NA))
+
+BioMe_proteome_protname_QC_wide<- BioMe_proteome_protname_QC %>% 
+                      select(SampleID, OlinkID, value) %>% 
+                      pivot_wider(
+                        names_from = OlinkID,
+                        values_from = value
+                      )
+
+vis_miss(BioMe_proteome_protname_QC_wide, warn_large_data = FALSE) +
+  labs(title="QC_Warning")
+
+
+
+BioMe_proteome_protname_LOD<- BioMe_proteome_protname %>% 
+                             mutate(value = if_else(LOD_ind == 1, NPX, NA))
+
+BioMe_proteome_protname_LOD_wide<- BioMe_proteome_protname_LOD %>% 
+                      select(SampleID, OlinkID, value) %>% 
+                      pivot_wider(
+                        names_from = OlinkID,
+                        values_from = value
+                      )
+
+vis_miss(BioMe_proteome_protname_LOD_wide, warn_large_data = FALSE) +
+  labs(title="LOD_Warning")
+
+
+
+BioMe_proteome_protname_NA<- BioMe_proteome_protname %>% 
+                             mutate(value = if_else(Warning == "PASS" & LOD_ind == 1, NPX, NA))
+
+BioMe_proteome_protname_NA_wide<- BioMe_proteome_protname_NA %>% 
+                      select(SampleID, OlinkID, value) %>% 
+                      pivot_wider(
+                        names_from = OlinkID,
+                        values_from = value
+                      )
+
+vis_miss(BioMe_proteome_protname_NA_wide, warn_large_data = FALSE) +
+  labs(title="QC_Warning & LOD_Warning")
+
+
+
+
+## number
+BioMe_proteome_totalcheck_num<- BioMe_proteome_check_data %>% 
+                           filter(Warning_percent > 0.5 | Percentage_above_LOD < 0.5) %>%
+                           select('Panel', 'Protein_name', 'Gene_name', 'OlinkID', 'Warning_percent', 'Percentage_above_LOD') %>% 
+                           reactable(groupBy = c("Panel"),
+                                     columns = list(
+                                       Warning_percent = colDef(format = colFormat(percent = TRUE, digits = 1)),
+                                       Percentage_above_LOD = colDef(format = colFormat(percent = TRUE, digits = 1)),
+                                       Protein_name = colDef(footer = function(values) sprintf("Total = %d", length(values)))))
+                           
+BioMe_proteome_totalcheck_num  
+
+
+
+BioMe_sample_totalcheck_num<- BioMe_sample_check_data %>% 
+                           filter(Warning_percent > 0.5 | Percentage_above_LOD < 0.5) %>%
+                           select('SampleID', 'Warning_percent', 'Percentage_above_LOD') %>% 
+                           reactable(columns = list(
+                                       Warning_percent = colDef(format = colFormat(percent = TRUE, digits = 1)),
+                                       Percentage_above_LOD = colDef(format = colFormat(percent = TRUE, digits = 1)),
+                                       SampleID = colDef(footer = function(values) sprintf("Total = %d", length(values)))))
+                           
+BioMe_sample_totalcheck_num  
+
+```
+
+
+
+
+
+
+
+### Distribution
+```{r, warning=FALSE,message=FALSE}
+BioMe_proteome_protname_QC_high<- highlight_key((BioMe_proteome_protname_QC %>% filter(Panel=="Cardiometabolic")), ~OlinkID)
+BioMe_proteome_protname_QC_plot<- ggplot(BioMe_proteome_protname_QC_high) +
+                               geom_density(aes(x = value, fill=OlinkID), alpha=0.3)+
+                               theme(legend.position = NULL)
+
+p<- BioMe_proteome_protname_QC_plot %>%
+    ggplotly(
+    hoverinfo = "x")%>%
+    highlight(on = "plotly_hover", off = "plotly_doubleclick")
+
+htmlwidgets::saveWidget(p, "distribution_plot.html", selfcontained = F, libdir = "lib")
+```
+
+
+
+
+
+
+
+
+## Dealing duplicates
+### Indoleamine 2,3-dioxygenase 1
+Neurology_II & Oncology_II
+```{r, warning=FALSE,message=FALSE}
+
+cor(BioMe_proteome_wide$OID31050,  BioMe_proteome_wide$OID31474)
+
+```
+
+### Interleukin-6
+Inflammation
+
+### Interleukin-8
+Inflammation & Oncology
+```{r, warning=FALSE,message=FALSE}
+
+cor(BioMe_proteome_wide$OID20631,  BioMe_proteome_wide$OID21430)
+
+```
+
+### Leiomodin-1
+Neurology_II & Oncology_II
+```{r, warning=FALSE,message=FALSE}
+
+cor(BioMe_proteome_wide$OID31014,  BioMe_proteome_wide$OID31416)
+
+```
+
+
+### Protein scribble homolog
+Neurology_II & Oncology_II
+```{r, warning=FALSE,message=FALSE}
+
+cor(BioMe_proteome_wide$OID31046,  BioMe_proteome_wide$OID31455)
+
+```
+
+### Tumor necrosis factor
+Cardiometabolic & Neurology & Oncology
+```{r, warning=FALSE,message=FALSE}
+
+cor(BioMe_proteome_wide[, c('OID20074', 'OID20848', 'OID21237')])
+
+```
+
+<!-- # Heatmap -->
+<!-- ```{r, warning=FALSE,message=FALSE} -->
+<!-- first15samples <- BioMe_proteome_protname %>%  -->
+<!--                   pull(SampleID) %>%  -->
+<!--                   unique() %>%  -->
+<!--                   head(15) -->
+<!-- first10protein <- BioMe_proteome_protname %>% -->
+<!--                   filter(Panel=="Cardiometabolic") %>%  -->
+<!--                   pull(OlinkID) %>%  -->
+<!--                   unique() %>%  -->
+<!--                   head(10) -->
+
+
+<!-- Heatmap<- BioMe_proteome_protname %>%  -->
+<!--           filter(Panel=="Cardiometabolic" & SampleID %in% first15samples & OlinkID %in% first10protein) %>%  -->
+<!--           olink_heatmap_plot() -->
+
+<!-- Heatmap -->
+<!-- ``` -->
+
+# Protein used in analysis
+```{r, warning=FALSE,message=FALSE}
+protein_in_panel<- fread("~/Projects/BioMe/proteome/input/analysis_sample/protein_in_panel.txt")
+
+table(protein_in_panel$Panel)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
