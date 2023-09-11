@@ -42,8 +42,6 @@ statistics<- c('LOD value',	'% > LOD',	'Min',	'Percentile 25', 'Median', 'Percen
 
 
 
-################################# 
-## baseline
 
 plasma_PFAS_baseline_info<- data.frame(matrix(ncol = 7, nrow = 7))
 
@@ -86,21 +84,21 @@ plasma_POP_info_name_table
 
 ###################################### Proteome
 
-### whole distribution
+
+
+## whole distribution
 protein_distribution<-  ggplot(BioMe_proteome_PFAS_long) +
                         geom_density(aes(x = NPX, fill=OlinkID), alpha=0.3) +
                         theme(legend.position = "none")
 
 
 
+jpeg("~/Projects/BioMe/proteome/output/EDA/distribution.jpeg",
+     units="in", width=20, height=16, res=500)
 
+protein_distribution
 
-# jpeg("~/Projects/BioMe/proteome/output/EDA/distribution.jpeg",
-#      units="in", width=20, height=16, res=500)
-# 
-# protein_distribution
-# 
-# dev.off()
+dev.off()
 
 ### protein number for each sample
 BioMe_proteome<- BioMe_proteome_PFAS_wide %>% 
@@ -113,7 +111,7 @@ number<- data.frame(number = rowSums(is.na(BioMe_proteome)==FALSE))
 
 number_plot1<- ggplot(number, aes(x=number)) + 
                 geom_histogram(fill = "#2E5FA1")+
-                labs(y ="Frequancy",x = "Protein number",
+                labs(y ="Frequency",x = "Protein number",
                      title = "Available Protein # for each Sample") +
                 theme(plot.title = element_text(size = 16, face="bold"),
                       axis.text = element_text(size = 12, face="bold"),
@@ -139,7 +137,7 @@ summary(count$count)
 
 sample_size_plot1<- ggplot(count, aes(x=count)) + 
                     geom_histogram(fill = "#2E5FA1")+
-                    labs(y ="Frequancy",x = "Sample Size",
+                    labs(y ="Frequency",x = "Sample Size",
                          title = "Sample Size for Proteins") +
                     theme(plot.title = element_text(size = 16, face="bold"),
                           axis.text = element_text(size = 12, face="bold"),

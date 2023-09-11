@@ -75,6 +75,8 @@ BioMe_proteome_PFAS_wide$status<- factor(ifelse(BioMe_proteome_PFAS_wide$status=
                                          levels = c(0,1))
 
 
+
+## Table
 demo_table<- BioMe_proteome_PFAS_wide %>% 
              tbl_summary(
                include = c(self_reported_race, sex, age_at_enrollment, smoking_at_enrollment, bmi_at_enrollment, year_enrl),

@@ -340,9 +340,9 @@ BioMe_proteome_check_table<- BioMe_proteome_check_data %>%
                              reactable(groupBy = c("Panel"), filterable = TRUE,  
                                     columns = list(Warning_percent = colDef(format = colFormat(percent = TRUE, digits = 1),
                                                                                  style = function(Warning_percent) {
-                                                                                         if (Warning_percent > 0.25) {
+                                                                                         if (Warning_percent > 0.10) {
                                                                                              color <- "#e00000"
-                                                                                         } else if (Warning_percent <= 0.25) {
+                                                                                         } else if (Warning_percent <= 0.10) {
                                                                                              color <- "#008000"
                                                                                          } 
                                                                                            list(color = color, fontWeight = "bold")
@@ -361,7 +361,7 @@ BioMe_proteome_check_table<- BioMe_proteome_check_data %>%
 BioMe_proteome_check_table
 
 BioMe_proteome_warn_num<- BioMe_proteome_check_data %>% 
-                           filter(Warning_percent > 0.25) %>%
+                           filter(Warning_percent > 0.10) %>%
                            select('Panel', 'Protein_name', 'Gene_name', 'OlinkID', 'Warning_percent') %>% 
                            reactable(groupBy = c("Panel"), 
                                      columns = list(
@@ -383,9 +383,9 @@ BioMe_proteome_LOD_num<- BioMe_proteome_check_data %>%
 BioMe_proteome_LOD_num  
 
 BioMe_proteome_remove<- BioMe_proteome_check_data %>% 
-                        filter(Warning_percent > 0.25 | Percentage_above_LOD < 0.25)
+                        filter(Warning_percent > 0.10 | Percentage_above_LOD < 0.25)
 
-write.table(BioMe_proteome_remove, "~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_warn_remove.txt", row.names = FALSE)
+# write.table(BioMe_proteome_remove, "~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_warn_remove.txt", row.names = FALSE)
 
 ```
 
@@ -429,9 +429,9 @@ BioMe_sample_check_table<- BioMe_sample_check_data %>%
                              reactable(filterable = TRUE,  
                                     columns = list(Warning_percent = colDef(format = colFormat(percent = TRUE, digits = 1),
                                                                                  style = function(Warning_percent) {
-                                                                                         if (Warning_percent > 0.25) {
+                                                                                         if (Warning_percent > 0.10) {
                                                                                              color <- "#e00000"
-                                                                                         } else if (Warning_percent <= 0.25) {
+                                                                                         } else if (Warning_percent <= 0.10) {
                                                                                              color <- "#008000"
                                                                                          } 
                                                                                            list(color = color, fontWeight = "bold")
@@ -492,7 +492,7 @@ vis_miss(BioMe_proteome_protname_QC_wide, warn_large_data = FALSE) +
 
 
 BioMe_proteome_protname_LOD<- BioMe_proteome_protname %>% 
-                             mutate(value = if_else(LOD_ind == 1, NPX, NA))
+                              mutate(value = if_else(LOD_ind == 1, NPX, NA))
 
 BioMe_proteome_protname_LOD_wide<- BioMe_proteome_protname_LOD %>% 
                       select(SampleID, OlinkID, value) %>% 
@@ -524,7 +524,7 @@ vis_miss(BioMe_proteome_protname_NA_wide, warn_large_data = FALSE) +
 
 ## number
 BioMe_proteome_totalcheck_num<- BioMe_proteome_check_data %>% 
-                           filter(Warning_percent > 0.5 | Percentage_above_LOD < 0.5) %>%
+                           filter(Warning_percent > 0.10 | Percentage_above_LOD < 0.25) %>%
                            select('Panel', 'Protein_name', 'Gene_name', 'OlinkID', 'Warning_percent', 'Percentage_above_LOD') %>% 
                            reactable(groupBy = c("Panel"),
                                      columns = list(
@@ -537,7 +537,7 @@ BioMe_proteome_totalcheck_num
 
 
 BioMe_sample_totalcheck_num<- BioMe_sample_check_data %>% 
-                           filter(Warning_percent > 0.5 | Percentage_above_LOD < 0.5) %>%
+                           filter(Warning_percent > 0.10 | Percentage_above_LOD < 0.25) %>%
                            select('SampleID', 'Warning_percent', 'Percentage_above_LOD') %>% 
                            reactable(columns = list(
                                        Warning_percent = colDef(format = colFormat(percent = TRUE, digits = 1)),
@@ -556,17 +556,16 @@ BioMe_sample_totalcheck_num
 
 ### Distribution
 ```{r, warning=FALSE,message=FALSE}
-BioMe_proteome_protname_QC_high<- highlight_key((BioMe_proteome_protname_QC %>% filter(Panel=="Cardiometabolic")), ~OlinkID)
-BioMe_proteome_protname_QC_plot<- ggplot(BioMe_proteome_protname_QC_high) +
-                               geom_density(aes(x = value, fill=OlinkID), alpha=0.3)+
-                               theme(legend.position = NULL)
-
-p<- BioMe_proteome_protname_QC_plot %>%
-    ggplotly(
-    hoverinfo = "x")%>%
-    highlight(on = "plotly_hover", off = "plotly_doubleclick")
-
-htmlwidgets::saveWidget(p, "distribution_plot.html", selfcontained = F, libdir = "lib")
+# BioMe_proteome_protname_QC_high<- highlight_key((BioMe_proteome_protname_QC %>% filter(Panel=="Cardiometabolic")), ~OlinkID)
+#                                geom_density(aes(x = value, fill=OlinkID), alpha=0.3)+
+#                                theme(legend.position = NULL)
+# 
+# p<- BioMe_proteome_protname_QC_plot %>%
+#     ggplotly(
+#     hoverinfo = "x")%>%
+#     highlight(on = "plotly_hover", off = "plotly_doubleclick")
+# 
+# htmlwidgets::saveWidget(p, "distribution_plot.html", selfcontained = F, libdir = "lib")
 ```
 
 
