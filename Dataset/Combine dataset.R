@@ -3,6 +3,7 @@ library(ggpubr)
 library(data.table)
 library(readr)
 library(readxl)
+library(mice)
 
 
 
@@ -12,12 +13,16 @@ assay_list<- read_excel("C:/Users/yaom03/OneDrive - The Mount Sinai Hospital/Doc
 BioMe_proteome_remove<- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_warn_remove.txt")
 BioMe_customer <- read_excel("C:/Users/yaom03/OneDrive - The Mount Sinai Hospital/Documents/Projects/BioMe/proteome/input/Q-00771_Customer_sample_manifest_-_consolidated.xlsx")
 
+Epi_data<- read_csv("C:/Users/yaom03/OneDrive - The Mount Sinai Hospital/Documents/Projects/BioMe/proteome/input/ff1_matching.csv")
 merged<- read_csv("C:/Users/yaom03/OneDrive - The Mount Sinai Hospital/Documents/Projects/BioMe/proteome/input/merged_pfas_epi_liver_data.csv")
 PFAS<- read_excel("C:/Users/yaom03/OneDrive - The Mount Sinai Hospital/Documents/Projects/BioMe/proteome/input/New_PFAS_data_Aug_21.xlsx")
 
 PFAS<- PFAS %>%
        filter(Sample_Class == "Study_Sample")
 
+
+BioMe_proteome_PFAS_wide <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_wide.txt")
+masked_mrn_participate<- BioMe_proteome_PFAS_wide$masked_mrn # subjects who participate in 360 and also has PFAS and proteomic data
 
 colnames(merged)[101]<- "SampleID"
 colnames(PFAS)[4]<- "SampleID"
@@ -144,18 +149,55 @@ BioMe_proteome_wide_removed<- BioMe_proteome_protname_removed %>%
 
 
 length(intersect(BioMe_proteome_wide$SampleID, BioMe_customer$SampleID))
-length(intersect(BioMe_customer$DID, merged$DID))
+length(intersect(BioMe_customer$DID, Epi_data$DID))
+
+
+#------------------------------------------- EPI data
+#----------- assign sample id
+
+Epi_data<- Epi_data %>%
+           left_join(merged[, c("SampleID", "masked_mrn", "DID")], by = "masked_mrn") %>% 
+           filter(is.na(td2_case_all) == FALSE)
+
+
+Epi_data$participant <- Epi_data$masked_mrn %in% masked_mrn_participate + 0
+
+
+
+
+#----------- calculate ipw for sampling bias
+
+
+# sapply(Epi_data, function(x) sum(is.na(x)))
+
+#--- estimation of denominator of ip weights
+denom.fit <- glm(participant ~ as.factor(td2_case_all) + as.factor(self_reported_race) + age_at_enrollment + as.factor(gender), 
+                 family = binomial(), data = Epi_data)
+summary(denom.fit)
+
+pd.qsmk <- predict(denom.fit, type = "response")
+
+#--- estimation of numerator of ip weights
+numer.fit <- glm(participant~1, family = binomial(), data = Epi_data)
+summary(numer.fit)
+
+pn.qsmk <- predict(numer.fit, type = "response")
+
+Epi_data$ipw <- ifelse(Epi_data$participant == 0, ((1-pn.qsmk)/(1-pd.qsmk)),
+                      (pn.qsmk/pd.qsmk))
+
+summary(Epi_data$ipw)
+
 
 
 
 
 #------------------------------------------- Combine PFAS & EPI data 
-merged<- subset(merged, select = -c(PFDeA, PFHxA, PFHxS, PFNA, PFOA, PFOS))
 PFAS$SampleID<- as.numeric(gsub("AB", "", PFAS$SampleID))
 
-length(intersect(merged$SampleID, PFAS$SampleID))
+length(intersect(Epi_data$SampleID, PFAS$SampleID))
 
-PFAS_epi_AUG21<- merged %>% 
+PFAS_epi_AUG21<- Epi_data %>% 
                  inner_join(PFAS, by = "SampleID")
 
 
@@ -326,21 +368,29 @@ BioMe_proteome_PFAS_wide<- BioMe_proteome_wide %>%
 BioMe_proteome_PFAS_long<- BioMe_proteome_protname_clean %>% 
                            inner_join(subset(PFAS_epi_AUG21, select = -c(SampleID)), by="DID")
                            
+BioMe_proteome_PFAS_wide_removed<- BioMe_proteome_wide_removed %>% 
+                                   inner_join(subset(PFAS_epi_AUG21, select = -c(SampleID)), by="DID")
+
+BioMe_proteome_PFAS_long_removed<- BioMe_proteome_protname_removed %>% 
+                                   inner_join(subset(PFAS_epi_AUG21, select = -c(SampleID)), by="DID")
 
 
-
-
-# 
 # write.table(BioMe_proteome_PFAS_wide, "~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_wide.txt", row.names = FALSE)
 # 
 # write.table(BioMe_proteome_PFAS_long, "~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_long.txt", row.names = FALSE)
 # 
+# write.table(BioMe_proteome_PFAS_wide_removed, "~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_wide_removed.txt", row.names = FALSE)
+# 
+# write.table(BioMe_proteome_PFAS_long_removed, "~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_long_removed.txt", row.names = FALSE)
 
 
-
+#------------------------------------------- Multiple imputation for covariates & proteins (run on Minerva)
 
 
 #------------------------------------------- protein in each panel
+BioMe_proteome_PFAS_long <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_long.txt")
+
+
 protein_in_panel<-  BioMe_proteome_PFAS_long %>% 
                     group_by(Panel, OlinkID) %>% 
                     dplyr::summarise(count = n())

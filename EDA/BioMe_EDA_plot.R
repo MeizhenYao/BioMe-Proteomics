@@ -14,9 +14,11 @@ library(pheatmap)
 library(plotly)
 library(gapminder)
 library(ggfortify)
+library(naniar)
 library(reactable)
 library(sandwich)
 library(ggrepel)
+library(mice)
 
 
 ##------------------------------------------- import data
@@ -34,6 +36,7 @@ protein_in_allpanels<- protein_in_panel$protein
 
 
 ###################################### PFAS
+#--- Table
 plasma_PFAS<- c('PFOS_Aug21',	'PFOA_Aug21',	'PFNA_Aug21',	"PFDA_Aug21", "PFHpS_Aug21", "PFHxS_Aug21", "PFHpA_Aug21")
 LOD_value<- c(0.01,	0.01, 0.01,	0.01, 0.01, 0.01, 0.01)
 
@@ -76,15 +79,52 @@ plasma_POP_info_name_table<- flextable(plasma_PFAS_baseline_info_name) %>%
 plasma_POP_info_name_table
 
 
+#--- corrplot
+corr_fun<- function(data){
+  
+  corrplot(data, 
+           method="color" ,
+           col = colorRampPalette(c("steelblue", "white", "darkred"))(100),cl.lim=c(0,1),
+           type="upper",
+           # order="hclust" ,
+           tl.pos = 'tp',
+           tl.srt=30,
+           tl.col = "black",
+  ) 
+  corrplot(data, 
+           method="number", 
+           type="lower", 
+           # order="hclust" ,
+           col = 'black', 
+           tl.pos = 'n',
+           cl.pos = 'n',
+           add=TRUE
+  ) 
+}
 
 
+# specify metal mixture
+mixture_PFAS = c('PFOS_Aug21',	'PFOA_Aug21',	'PFNA_Aug21',	"PFDA_Aug21", "PFHpS_Aug21", "PFHxS_Aug21", "PFHpA_Aug21")
+PFAS_name = c('PFOS',	'PFOA',	'PFNA',	"PFDA", "PFHpS", "PFHxS", "PFHpA")
+
+# mixture_PFAS
+
+PFAS_corr = cor(data.frame(BioMe_proteome_PFAS_wide[,..mixture_PFAS]), method = "spearman")
+colnames(PFAS_corr)<- PFAS_name[1:7]
+rownames(PFAS_corr)<- PFAS_name[1:7]
+
+jpeg("~/Projects/BioMe/proteome/output/EDA/corr_pfas.jpeg",
+     units="in", width=8, height=6, res=500)
 
 
+corr_fun(PFAS_corr) 
+
+dev.off()
 
 
 ###################################### Proteome
-
-
+## missing pattern
+vis_miss((BioMe_proteome_PFAS_wide %>% select(starts_with("OID"))), warn_large_data = FALSE)
 
 ## whole distribution
 protein_distribution<-  ggplot(BioMe_proteome_PFAS_long) +

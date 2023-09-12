@@ -63,7 +63,7 @@ BioMe_proteome_PFAS_wide$self_reported_race<- factor(BioMe_proteome_PFAS_wide$se
 
 
 ## sex
-BioMe_proteome_PFAS_wide$sex<- factor(BioMe_proteome_PFAS_wide$sex,
+BioMe_proteome_PFAS_wide$sex<- factor(BioMe_proteome_PFAS_wide$gender,
                                       levels = c("Male", "Female"))
 
 ## smoking
@@ -71,7 +71,7 @@ BioMe_proteome_PFAS_wide$smoking_at_enrollment<- factor(BioMe_proteome_PFAS_wide
                                                         levels = c("No", "Yes"))
 
 ## status
-BioMe_proteome_PFAS_wide$status<- factor(ifelse(BioMe_proteome_PFAS_wide$status=="case", 1, 0),
+BioMe_proteome_PFAS_wide$status<- factor(ifelse(BioMe_proteome_PFAS_wide$td2_case_incident=="case", 1, 0),
                                          levels = c(0,1))
 
 
