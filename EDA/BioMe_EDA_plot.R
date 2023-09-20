@@ -21,17 +21,16 @@ library(ggrepel)
 library(mice)
 
 
+
 ##------------------------------------------- import data
 BioMe_proteome_PFAS_wide <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_wide.txt")
+BioMe_proteome_PFAS_wide_imputed <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_wide_imputed.txt")
+BioMe_proteome_PFAS_long_imputed <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_long_imputed.txt")
 protein_in_panel <- fread("~/Projects/BioMe/proteome/input/analysis_sample/protein_in_panel.txt")
 BioMe_proteome_PFAS_long <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_long.txt")
 
 
 protein_in_allpanels<- protein_in_panel$protein
-
-
-
-
 
 
 
@@ -124,16 +123,27 @@ dev.off()
 
 ###################################### Proteome
 ## missing pattern
-vis_miss((BioMe_proteome_PFAS_wide %>% select(starts_with("OID"))), warn_large_data = FALSE)
+
+BioMe_proteome_PFAS_wide <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_wide.txt")
+
+missing_proteome<- vis_miss((BioMe_proteome_PFAS_wide %>% select(starts_with("OID"))), warn_large_data = FALSE)
+
+jpeg("~/Projects/BioMe/proteome/output/EDA/missing_proteome.jpeg",
+     units="in", width=26, height=16, res=500)
+
+missing_proteome
+
+dev.off()
+
 
 ## whole distribution
-protein_distribution<-  ggplot(BioMe_proteome_PFAS_long) +
+protein_distribution<-  ggplot(BioMe_proteome_PFAS_long_imputed) +
                         geom_density(aes(x = NPX, fill=OlinkID), alpha=0.3) +
                         theme(legend.position = "none")
 
 
 
-jpeg("~/Projects/BioMe/proteome/output/EDA/distribution.jpeg",
+jpeg("~/Projects/BioMe/proteome/output/EDA/distribution_imputed.jpeg",
      units="in", width=20, height=16, res=500)
 
 protein_distribution
@@ -195,7 +205,7 @@ dev.off()
 
 
 ### median
-Median<-  BioMe_proteome_PFAS_long %>% 
+Median<-  BioMe_proteome_PFAS_long_imputed %>% 
                             group_by(OlinkID) %>% 
                             dplyr::summarise(median = median(NPX, na.rm = TRUE))
 
@@ -216,8 +226,15 @@ median_plot1
 dev.off()
 
 
+
 ### standard deviation
-SD<-  BioMe_proteome_PFAS_long %>% 
+
+
+# var(BioMe_proteome_PFAS_wide$OID21237, na.rm = TRUE)
+
+
+
+SD<-  BioMe_proteome_PFAS_long_imputed %>% 
       group_by(OlinkID) %>% 
       dplyr::summarise(sd = sd(NPX, na.rm = TRUE))
 
