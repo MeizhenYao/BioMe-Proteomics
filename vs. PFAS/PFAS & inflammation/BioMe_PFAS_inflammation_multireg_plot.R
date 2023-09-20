@@ -18,11 +18,11 @@ library(sandwich)
 library(ggrepel)
 
 
-BioMe_proteome_PFAS_wide <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_wide.txt")
+BioMe_proteome_PFAS_wide <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_wide_norm_imputed_v2.txt")
 protein_in_panel <- fread("~/Projects/BioMe/proteome/input/analysis_sample/protein_in_panel.txt")
 
 
-protein_in_inflammation<- (protein_in_panel %>% filter(Panel == "Inflammation"))$protein
+protein_in_inflammation<- (protein_in_panel %>% filter(Panel == "Inflammation"))$OlinkID
 
 
 
@@ -367,7 +367,7 @@ dev.off()
 
 
 ##------------------------------------------- adjusted
-PFDA_inflam_adlm_results <- read.csv("~/Projects/BioMe/proteome/input/exwas/exwas_PFDA_inflam_adlm_q.csv")
+PFDA_inflam_adlm_results <- read.csv("~/Projects/BioMe/proteome/input/exwas/exwas_PFDA_inflam_adlm_q_imputed1.csv")
 d_lm_pfas_plot <- PFDA_inflam_adlm_results
 cutoff <- 0.05
 d_lm_pfas_plot$Association <- "Null"
@@ -380,6 +380,8 @@ ght <- cor(BioMe_proteome_PFAS_wide %>% select(all_of(protein_in_inflammation)),
 et <- eigen(ght)
 cut_label<- 1/ (sum((et$values>1 + 0)* (et$values - 1)))
 # [1] 0.004458986
+# [1] 0.004541536
+# [1] 0.004537802
 
 d_lm_pfas_plot$delabel <- NA
 d_lm_pfas_plot$delabel[d_lm_pfas_plot$Association != "Null" & d_lm_pfas_plot$p.value < cut_label ] <- d_lm_pfas_plot$Protein_name[d_lm_pfas_plot$Association != "Null" & d_lm_pfas_plot$p.value < cut_label]
@@ -412,6 +414,7 @@ volcano_pos_pfas_met <- vol + theme(legend.position = "none",
                                     axis.text.x= element_text(size = 14, face = "bold"),
                                     axis.text.y = element_text(size = 14, face = "bold"),
                                     axis.title=element_text(size=14,face="bold"))
+
 jpeg("~/Projects/BioMe/proteome/output/PFAS vs. inflammation/multireg/tertile/adjusted/PFDA_inflammation_adlm_q.jpeg",
      units="in", width=16, height=12, res=500)
 

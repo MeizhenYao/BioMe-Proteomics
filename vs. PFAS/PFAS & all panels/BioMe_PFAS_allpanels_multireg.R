@@ -20,7 +20,7 @@ library(corrplot)
 
 
 ##------------------------------------------- import data
-BioMe_proteome_PFAS_wide <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_wide.txt")
+BioMe_proteome_PFAS_wide <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_wide_imputed.txt")
 protein_in_panel <- fread("~/Projects/BioMe/proteome/input/analysis_sample/protein_in_panel.txt")
 BioMe_proteome_PFAS_long <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_long.txt")
 
@@ -32,9 +32,11 @@ BioMe_proteome_PFAS_long <- fread("~/Projects/BioMe/proteome/input/analysis_samp
 #                                     filter(Panel == "Inflammation")
 
 ## protein in inflammation panel
-protein_in_allpanels<- protein_in_panel$protein
+protein_in_allpanels<- protein_in_panel$OlinkID
 
-
+## PFHpA binary formate
+BioMe_proteome_PFAS_wide$PFHpA_Aug21_bi<- factor(BioMe_proteome_PFAS_wide$PFHpA_Aug21_bi,
+                                          levels = c("Lower PFHpA", "Higher PFHpA"))
 
 
 ## date of blood draw
@@ -58,7 +60,7 @@ BioMe_proteome_PFAS_wide$self_reported_race<- factor(BioMe_proteome_PFAS_wide$se
 
 
 ## sex
-BioMe_proteome_PFAS_wide$sex<- factor(BioMe_proteome_PFAS_wide$sex,
+BioMe_proteome_PFAS_wide$sex<- factor(BioMe_proteome_PFAS_wide$gender,
                                       levels = c("Male", "Female"))
 
 ## smoking
@@ -68,6 +70,15 @@ BioMe_proteome_PFAS_wide$smoking_at_enrollment<- factor(BioMe_proteome_PFAS_wide
 ## status
 BioMe_proteome_PFAS_wide$status<- factor(ifelse(BioMe_proteome_PFAS_wide$status=="case", 1, 0),
                                          levels = c(0,1))
+
+## stratified by status
+BioMe_proteome_PFAS_wide_case<- BioMe_proteome_PFAS_wide %>% 
+                                filter(td2_case_all == 1)
+
+BioMe_proteome_PFAS_wide_control<- BioMe_proteome_PFAS_wide %>% 
+                                filter(td2_case_all == 0)
+
+
 
 
 ## analysis dataset
@@ -99,816 +110,211 @@ BioMe_proteome_PFAS_wide$status<- factor(ifelse(BioMe_proteome_PFAS_wide$status=
 # 
 # cor_plot<- corr_fun(cor_data) 
 
-#----------------------- Binary PFDA
-##---------------------- Uadjusted
-PFDA_all_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
 
-for(i in 1:length(protein_in_allpanels)){
+
+##########################
+## function for model fit
+##########################
+
+lm_fit_info<- function(protein, data, data_in_long, covariates, path){
   
-  s_lm <- (lm(as.formula(paste0(protein_in_allpanels[i], "~ PFDA_Aug21_bi")), 
-              data = BioMe_proteome_PFAS_wide))
+  PFAS_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
   
-  cov.m1 <- vcovHC(s_lm, type = "HC3")
+  for(i in 1:length(protein)){
+    
+    s_lm <- (lm(as.formula(paste0(protein[i], covariates)), 
+                data = data, weights = ipw))
+    
+    cov.m1 <- vcovHC(s_lm, type = "HC3")
+    
+    std.err <- sqrt(diag(cov.m1))
+    
+    r.est <- cbind(
+      Estimate = coef(s_lm)
+      , "Robust SE" = std.err
+      , z = (coef(s_lm)/std.err)
+      , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
+    
+    
+    PFAS_lm <- rbind(PFAS_lm, c(protein[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
+  }
   
-  std.err <- sqrt(diag(cov.m1))
   
-  r.est <- cbind(
-            Estimate = coef(s_lm)
-            , "Robust SE" = std.err
-            , z = (coef(s_lm)/std.err)
-            , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
-          
   
-  PFDA_all_lm <- rbind(PFDA_all_lm, c(protein_in_allpanels[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
+  PFAS_lm <- PFAS_lm[-1,]
+  PFAS_lm$z.value <- as.numeric(PFAS_lm$z.value)
+  PFAS_lm$p.value <- as.numeric(PFAS_lm$p.value)
+  PFAS_lm$fdr <- as.numeric(p.adjust(PFAS_lm$p.value, method="fdr"))
+  
+  
+  q <- qvalue::qvalue(as.numeric(PFAS_lm$p.value), lambda=0)
+  PFAS_lm$q.value <-  q$qvalues
+  
+  
+  PFAS_lm_results<- PFAS_lm %>% 
+    left_join(data_in_long[,c("OlinkID", "Protein_name", "UniProt")], by="OlinkID") %>% 
+    distinct()
+  
+  write.csv(PFAS_lm_results,
+            path,
+            row.names = F)
 }
- 
- 
-
-PFDA_all_lm <- PFDA_all_lm[-1,]
-PFDA_all_lm$z.value <- as.numeric(PFDA_all_lm$z.value)
-PFDA_all_lm$p.value <- as.numeric(PFDA_all_lm$p.value)
 
 
-q <-qvalue::qvalue(as.numeric(PFDA_all_lm$p.value), lambda=0)
-PFDA_all_lm$q.value <-  q$qvalues
+##########################
 
-
-PFDA_all_unlm_results<- PFDA_all_lm %>% 
-                           left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-                           distinct()
-
-
-write.csv(PFDA_all_unlm_results,
-          "~/Projects/BioMe/proteome/input/exwas/all panels/exwas_PFDA_all_unlm.csv",
-          row.names = F)
-
-
-
+#-------------------------------------------------- whole sample
+#----------------------- Continuous PFDA - quartile
 ##---------------------- Adjusted
-PFDA_all_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
 
-for(i in 1:length(protein_in_allpanels)){
-  
-  s_lm <- (lm(as.formula(paste0(protein_in_allpanels[i], "~ PFDA_Aug21_bi + self_reported_race + age_at_enrollment + sex + bmi_at_enrollment+ c_date_enrl + smoking_at_enrollment")), 
-              data = BioMe_proteome_PFAS_wide))
-  
-  cov.m1 <- vcovHC(s_lm, type = "HC3")
-  
-  std.err <- sqrt(diag(cov.m1))
-  
-  r.est <- cbind(
-    Estimate = coef(s_lm)
-    , "Robust SE" = std.err
-    , z = (coef(s_lm)/std.err)
-    , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
-  
-  
-  PFDA_all_lm <- rbind(PFDA_all_lm, c(protein_in_allpanels[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
-}
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide, BioMe_proteome_PFAS_long, 
+            "~ PFDA_Aug21_q + self_reported_race + age_at_enrollment + sex  + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFDA_allpanel_adlm_q.csv")
 
 
-
-PFDA_all_lm <- PFDA_all_lm[-1,]
-PFDA_all_lm$z.value <- as.numeric(PFDA_all_lm$z.value)
-PFDA_all_lm$p.value <- as.numeric(PFDA_all_lm$p.value)
-
-
-q <-qvalue::qvalue(as.numeric(PFDA_all_lm$p.value), lambda=0)
-PFDA_all_lm$q.value <-  q$qvalues
-
-
-PFDA_all_adlm_results<- PFDA_all_lm %>% 
-  left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-  distinct()
-
-
-write.csv(PFDA_all_adlm_results,
-          "~/Projects/BioMe/proteome/input/exwas/all panels/exwas_PFDA_all_adlm.csv",
-          row.names = F)
-
-
-#----------------------- Continuous PFDA
-##---------------------- Uadjusted
-PFDA_all_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
-
-for(i in 1:length(protein_in_allpanels)){
-  
-  s_lm <- (lm(as.formula(paste0(protein_in_allpanels[i], "~ PFDA_Aug21")), 
-              data = BioMe_proteome_PFAS_wide))
-  
-  cov.m1 <- vcovHC(s_lm, type = "HC3")
-  
-  std.err <- sqrt(diag(cov.m1))
-  
-  r.est <- cbind(
-    Estimate = coef(s_lm)
-    , "Robust SE" = std.err
-    , z = (coef(s_lm)/std.err)
-    , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
-  
-  
-  PFDA_all_lm <- rbind(PFDA_all_lm, c(protein_in_allpanels[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
-}
-
-
-
-PFDA_all_lm <- PFDA_all_lm[-1,]
-PFDA_all_lm$z.value <- as.numeric(PFDA_all_lm$z.value)
-PFDA_all_lm$p.value <- as.numeric(PFDA_all_lm$p.value)
-
-
-q <-qvalue::qvalue(as.numeric(PFDA_all_lm$p.value), lambda=0)
-PFDA_all_lm$q.value <-  q$qvalues
-
-
-PFDA_all_unlm_results<- PFDA_all_lm %>% 
-  left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-  distinct()
-
-
-write.csv(PFDA_all_unlm_results,
-          "~/Projects/BioMe/proteome/input/exwas/all panels/exwas_PFDA_all_unlm_cont.csv",
-          row.names = F)
-
-
-
+#----------------------- Continuous PFOA - quartile
 ##---------------------- Adjusted
-PFDA_all_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
 
-for(i in 1:length(protein_in_allpanels)){
-  
-  s_lm <- (lm(as.formula(paste0(protein_in_allpanels[i], "~ PFDA_Aug21 + self_reported_race + age_at_enrollment + sex + bmi_at_enrollment+ c_date_enrl + smoking_at_enrollment")), 
-              data = BioMe_proteome_PFAS_wide))
-  
-  cov.m1 <- vcovHC(s_lm, type = "HC3")
-  
-  std.err <- sqrt(diag(cov.m1))
-  
-  r.est <- cbind(
-    Estimate = coef(s_lm)
-    , "Robust SE" = std.err
-    , z = (coef(s_lm)/std.err)
-    , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
-  
-  
-  PFDA_all_lm <- rbind(PFDA_all_lm, c(protein_in_allpanels[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
-}
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide, BioMe_proteome_PFAS_long, 
+            "~ PFOA_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFOA_allpanel_adlm_q.csv")
 
 
-
-PFDA_all_lm <- PFDA_all_lm[-1,]
-PFDA_all_lm$z.value <- as.numeric(PFDA_all_lm$z.value)
-PFDA_all_lm$p.value <- as.numeric(PFDA_all_lm$p.value)
-
-
-q <-qvalue::qvalue(as.numeric(PFDA_all_lm$p.value), lambda=0)
-PFDA_all_lm$q.value <-  q$qvalues
-
-
-PFDA_all_adlm_results<- PFDA_all_lm %>% 
-  left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-  distinct()
-
-
-write.csv(PFDA_all_adlm_results,
-          "~/Projects/BioMe/proteome/input/exwas/all panels/exwas_PFDA_all_adlm_cont.csv",
-          row.names = F)
-
-#----------------------- Continuous PFDA - tertile
-##---------------------- Uadjusted
-PFDA_all_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
-
-for(i in 1:length(protein_in_allpanels)){
-  
-  s_lm <- (lm(as.formula(paste0(protein_in_allpanels[i], "~ PFDA_Aug21_q")), 
-              data = BioMe_proteome_PFAS_wide))
-  
-  cov.m1 <- vcovHC(s_lm, type = "HC3")
-  
-  std.err <- sqrt(diag(cov.m1))
-  
-  r.est <- cbind(
-    Estimate = coef(s_lm)
-    , "Robust SE" = std.err
-    , z = (coef(s_lm)/std.err)
-    , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
-  
-  
-  PFDA_all_lm <- rbind(PFDA_all_lm, c(protein_in_allpanels[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
-}
-
-
-
-PFDA_all_lm <- PFDA_all_lm[-1,]
-PFDA_all_lm$z.value <- as.numeric(PFDA_all_lm$z.value)
-PFDA_all_lm$p.value <- as.numeric(PFDA_all_lm$p.value)
-
-
-q <-qvalue::qvalue(as.numeric(PFDA_all_lm$p.value), lambda=0)
-PFDA_all_lm$q.value <-  q$qvalues
-
-
-PFDA_all_unlm_results<- PFDA_all_lm %>% 
-  left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-  distinct()
-
-
-write.csv(PFDA_all_unlm_results,
-          "~/Projects/BioMe/proteome/input/exwas/all panels/exwas_PFDA_all_unlm_q.csv",
-          row.names = F)
-
-
-
+#----------------------- Continuous PFOS - quartile
 ##---------------------- Adjusted
-PFDA_all_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
 
-for(i in 1:length(protein_in_allpanels)){
-  
-  s_lm <- (lm(as.formula(paste0(protein_in_allpanels[i], "~ PFDA_Aug21_q + self_reported_race + age_at_enrollment + sex + bmi_at_enrollment+ c_date_enrl + smoking_at_enrollment")), 
-              data = BioMe_proteome_PFAS_wide))
-  
-  cov.m1 <- vcovHC(s_lm, type = "HC3")
-  
-  std.err <- sqrt(diag(cov.m1))
-  
-  r.est <- cbind(
-    Estimate = coef(s_lm)
-    , "Robust SE" = std.err
-    , z = (coef(s_lm)/std.err)
-    , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
-  
-  
-  PFDA_all_lm <- rbind(PFDA_all_lm, c(protein_in_allpanels[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
-}
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide, BioMe_proteome_PFAS_long, 
+            "~ PFOS_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFOS_allpanel_adlm_q.csv")
 
 
 
-PFDA_all_lm <- PFDA_all_lm[-1,]
-PFDA_all_lm$z.value <- as.numeric(PFDA_all_lm$z.value)
-PFDA_all_lm$p.value <- as.numeric(PFDA_all_lm$p.value)
+#----------------------- Continuous PFHxS - quartile
+#---------------------- Adjusted
 
-
-q <-qvalue::qvalue(as.numeric(PFDA_all_lm$p.value), lambda=0)
-PFDA_all_lm$q.value <-  q$qvalues
-
-
-PFDA_all_adlm_results<- PFDA_all_lm %>% 
-  left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-  distinct()
-
-
-write.csv(PFDA_all_adlm_results,
-          "~/Projects/BioMe/proteome/input/exwas/all panels/exwas_PFDA_all_adlm_q.csv",
-          row.names = F)
-
-
-#----------------------- Continuous PFOA - tertile
-##---------------------- Uadjusted
-PFOA_all_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
-
-for(i in 1:length(protein_in_allpanels)){
-  
-  s_lm <- (lm(as.formula(paste0(protein_in_allpanels[i], "~ PFOA_Aug21_q")), 
-              data = BioMe_proteome_PFAS_wide))
-  
-  cov.m1 <- vcovHC(s_lm, type = "HC3")
-  
-  std.err <- sqrt(diag(cov.m1))
-  
-  r.est <- cbind(
-    Estimate = coef(s_lm)
-    , "Robust SE" = std.err
-    , z = (coef(s_lm)/std.err)
-    , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
-  
-  
-  PFOA_all_lm <- rbind(PFOA_all_lm, c(protein_in_allpanels[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
-}
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide, BioMe_proteome_PFAS_long, 
+            "~ PFHxS_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHxS_allpanel_adlm_q.csv")
 
 
 
-PFOA_all_lm <- PFOA_all_lm[-1,]
-PFOA_all_lm$z.value <- as.numeric(PFOA_all_lm$z.value)
-PFOA_all_lm$p.value <- as.numeric(PFOA_all_lm$p.value)
-
-
-q <-qvalue::qvalue(as.numeric(PFOA_all_lm$p.value), lambda=0)
-PFOA_all_lm$q.value <-  q$qvalues
-
-
-PFOA_all_unlm_results<- PFOA_all_lm %>% 
-  left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-  distinct()
-
-
-write.csv(PFOA_all_unlm_results,
-          "~/Projects/BioMe/proteome/input/exwas/all panels/exwas_PFOA_all_unlm_q.csv",
-          row.names = F)
-
-
-
+#----------------------- Continuous PFNA - quartile
 ##---------------------- Adjusted
-PFOA_all_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
 
-for(i in 1:length(protein_in_allpanels)){
-  
-  s_lm <- (lm(as.formula(paste0(protein_in_allpanels[i], "~ PFOA_Aug21_q + self_reported_race + age_at_enrollment + sex + bmi_at_enrollment+ c_date_enrl + smoking_at_enrollment")), 
-              data = BioMe_proteome_PFAS_wide))
-  
-  cov.m1 <- vcovHC(s_lm, type = "HC3")
-  
-  std.err <- sqrt(diag(cov.m1))
-  
-  r.est <- cbind(
-    Estimate = coef(s_lm)
-    , "Robust SE" = std.err
-    , z = (coef(s_lm)/std.err)
-    , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
-  
-  
-  PFOA_all_lm <- rbind(PFOA_all_lm, c(protein_in_allpanels[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
-}
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide, BioMe_proteome_PFAS_long, 
+            "~ PFNA_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFNA_allpanel_adlm_q.csv")
 
 
 
-PFOA_all_lm <- PFOA_all_lm[-1,]
-PFOA_all_lm$z.value <- as.numeric(PFOA_all_lm$z.value)
-PFOA_all_lm$p.value <- as.numeric(PFOA_all_lm$p.value)
-
-
-q <-qvalue::qvalue(as.numeric(PFOA_all_lm$p.value), lambda=0)
-PFOA_all_lm$q.value <-  q$qvalues
-
-
-PFOA_all_adlm_results<- PFOA_all_lm %>% 
-  left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-  distinct()
-
-
-write.csv(PFOA_all_adlm_results,
-          "~/Projects/BioMe/proteome/input/exwas/all panels/exwas_PFOA_all_adlm_q.csv",
-          row.names = F)
-
-
-#----------------------- Continuous PFOS - tertile
-##---------------------- Uadjusted
-PFOS_all_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
-
-for(i in 1:length(protein_in_allpanels)){
-  
-  s_lm <- (lm(as.formula(paste0(protein_in_allpanels[i], "~ PFOS_Aug21_q")), 
-              data = BioMe_proteome_PFAS_wide))
-  
-  cov.m1 <- vcovHC(s_lm, type = "HC3")
-  
-  std.err <- sqrt(diag(cov.m1))
-  
-  r.est <- cbind(
-    Estimate = coef(s_lm)
-    , "Robust SE" = std.err
-    , z = (coef(s_lm)/std.err)
-    , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
-  
-  
-  PFOS_all_lm <- rbind(PFOS_all_lm, c(protein_in_allpanels[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
-}
-
-
-
-PFOS_all_lm <- PFOS_all_lm[-1,]
-PFOS_all_lm$z.value <- as.numeric(PFOS_all_lm$z.value)
-PFOS_all_lm$p.value <- as.numeric(PFOS_all_lm$p.value)
-
-
-q <-qvalue::qvalue(as.numeric(PFOS_all_lm$p.value), lambda=0)
-PFOS_all_lm$q.value <-  q$qvalues
-
-
-PFOS_all_unlm_results<- PFOS_all_lm %>% 
-  left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-  distinct()
-
-
-write.csv(PFOS_all_unlm_results,
-          "~/Projects/BioMe/proteome/input/exwas/all panels/exwas_PFOS_all_unlm_q.csv",
-          row.names = F)
-
-
-
+#----------------------- Continuous PFHpS - quartile
 ##---------------------- Adjusted
-PFOS_all_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
 
-for(i in 1:length(protein_in_allpanels)){
-  
-  s_lm <- (lm(as.formula(paste0(protein_in_allpanels[i], "~ PFOS_Aug21_q + self_reported_race + age_at_enrollment + sex + bmi_at_enrollment+ c_date_enrl + smoking_at_enrollment")), 
-              data = BioMe_proteome_PFAS_wide))
-  
-  cov.m1 <- vcovHC(s_lm, type = "HC3")
-  
-  std.err <- sqrt(diag(cov.m1))
-  
-  r.est <- cbind(
-    Estimate = coef(s_lm)
-    , "Robust SE" = std.err
-    , z = (coef(s_lm)/std.err)
-    , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
-  
-  
-  PFOS_all_lm <- rbind(PFOS_all_lm, c(protein_in_allpanels[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
-}
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide, BioMe_proteome_PFAS_long, 
+            "~ PFHpS_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHpS_allpanel_adlm_q.csv")
 
-
-
-PFOS_all_lm <- PFOS_all_lm[-1,]
-PFOS_all_lm$z.value <- as.numeric(PFOS_all_lm$z.value)
-PFOS_all_lm$p.value <- as.numeric(PFOS_all_lm$p.value)
-
-
-q <-qvalue::qvalue(as.numeric(PFOS_all_lm$p.value), lambda=0)
-PFOS_all_lm$q.value <-  q$qvalues
-
-
-PFOS_all_adlm_results<- PFOS_all_lm %>% 
-  left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-  distinct()
-
-
-write.csv(PFOS_all_adlm_results,
-          "~/Projects/BioMe/proteome/input/exwas/all panels/exwas_PFOS_all_adlm_q.csv",
-          row.names = F)
-
-
-
-#----------------------- Continuous PFHpA - tertile
-##---------------------- Uadjusted
-PFHpA_all_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
-
-for(i in 1:length(protein_in_allpanels)){
-  
-  s_lm <- (lm(as.formula(paste0(protein_in_allpanels[i], "~ PFHpA_Aug21_q")), 
-              data = BioMe_proteome_PFAS_wide))
-  
-  cov.m1 <- vcovHC(s_lm, type = "HC3")
-  
-  std.err <- sqrt(diag(cov.m1))
-  
-  r.est <- cbind(
-    Estimate = coef(s_lm)
-    , "Robust SE" = std.err
-    , z = (coef(s_lm)/std.err)
-    , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
-  
-  
-  PFHpA_all_lm <- rbind(PFHpA_all_lm, c(protein_in_allpanels[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
-}
-
-
-
-PFHpA_all_lm <- PFHpA_all_lm[-1,]
-PFHpA_all_lm$z.value <- as.numeric(PFHpA_all_lm$z.value)
-PFHpA_all_lm$p.value <- as.numeric(PFHpA_all_lm$p.value)
-
-
-q <-qvalue::qvalue(as.numeric(PFHpA_all_lm$p.value), lambda=0)
-PFHpA_all_lm$q.value <-  q$qvalues
-
-
-PFHpA_all_unlm_results<- PFHpA_all_lm %>% 
-  left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-  distinct()
-
-
-write.csv(PFHpA_all_unlm_results,
-          "~/Projects/BioMe/proteome/input/exwas/all panels/exwas_PFHpA_all_unlm_q.csv",
-          row.names = F)
-
-
-
+#----------------------- Continuous PFHpA - binary
 ##---------------------- Adjusted
-PFHpA_all_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
 
-for(i in 1:length(protein_in_allpanels)){
-  
-  s_lm <- (lm(as.formula(paste0(protein_in_allpanels[i], "~ PFHpA_Aug21_q + self_reported_race + age_at_enrollment + sex + bmi_at_enrollment+ c_date_enrl + smoking_at_enrollment")), 
-              data = BioMe_proteome_PFAS_wide))
-  
-  cov.m1 <- vcovHC(s_lm, type = "HC3")
-  
-  std.err <- sqrt(diag(cov.m1))
-  
-  r.est <- cbind(
-    Estimate = coef(s_lm)
-    , "Robust SE" = std.err
-    , z = (coef(s_lm)/std.err)
-    , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
-  
-  
-  PFHpA_all_lm <- rbind(PFHpA_all_lm, c(protein_in_allpanels[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
-}
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide, BioMe_proteome_PFAS_long, 
+            "~ PFHpA_Aug21_bi + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHpA_allpanel_adlm_bi.csv")
 
-
-
-PFHpA_all_lm <- PFHpA_all_lm[-1,]
-PFHpA_all_lm$z.value <- as.numeric(PFHpA_all_lm$z.value)
-PFHpA_all_lm$p.value <- as.numeric(PFHpA_all_lm$p.value)
-
-
-q <-qvalue::qvalue(as.numeric(PFHpA_all_lm$p.value), lambda=0)
-PFHpA_all_lm$q.value <-  q$qvalues
-
-
-PFHpA_all_adlm_results<- PFHpA_all_lm %>% 
-  left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-  distinct()
-
-
-write.csv(PFHpA_all_adlm_results,
-          "~/Projects/BioMe/proteome/input/exwas/all panels/exwas_PFHpA_all_adlm_q.csv",
-          row.names = F)
-
-
-
-#----------------------- Continuous PFHxS - tertile
-##---------------------- Uadjusted
-PFHxS_all_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
-
-for(i in 1:length(protein_in_allpanels)){
-  
-  s_lm <- (lm(as.formula(paste0(protein_in_allpanels[i], "~ PFHxS_Aug21_q")), 
-              data = BioMe_proteome_PFAS_wide))
-  
-  cov.m1 <- vcovHC(s_lm, type = "HC3")
-  
-  std.err <- sqrt(diag(cov.m1))
-  
-  r.est <- cbind(
-    Estimate = coef(s_lm)
-    , "Robust SE" = std.err
-    , z = (coef(s_lm)/std.err)
-    , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
-  
-  
-  PFHxS_all_lm <- rbind(PFHxS_all_lm, c(protein_in_allpanels[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
-}
-
-
-
-PFHxS_all_lm <- PFHxS_all_lm[-1,]
-PFHxS_all_lm$z.value <- as.numeric(PFHxS_all_lm$z.value)
-PFHxS_all_lm$p.value <- as.numeric(PFHxS_all_lm$p.value)
-
-
-q <-qvalue::qvalue(as.numeric(PFHxS_all_lm$p.value), lambda=0)
-PFHxS_all_lm$q.value <-  q$qvalues
-
-
-PFHxS_all_unlm_results<- PFHxS_all_lm %>% 
-  left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-  distinct()
-
-
-write.csv(PFHxS_all_unlm_results,
-          "~/Projects/BioMe/proteome/input/exwas/all panels/exwas_PFHxS_all_unlm_q.csv",
-          row.names = F)
-
-
-
+#-------------------------------------------------- in case
+#----------------------- Continuous PFDA - quartile
 ##---------------------- Adjusted
-PFHxS_all_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
 
-for(i in 1:length(protein_in_allpanels)){
-  
-  s_lm <- (lm(as.formula(paste0(protein_in_allpanels[i], "~ PFHxS_Aug21_q + self_reported_race + age_at_enrollment + sex + bmi_at_enrollment+ c_date_enrl + smoking_at_enrollment")), 
-              data = BioMe_proteome_PFAS_wide))
-  
-  cov.m1 <- vcovHC(s_lm, type = "HC3")
-  
-  std.err <- sqrt(diag(cov.m1))
-  
-  r.est <- cbind(
-    Estimate = coef(s_lm)
-    , "Robust SE" = std.err
-    , z = (coef(s_lm)/std.err)
-    , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
-  
-  
-  PFHxS_all_lm <- rbind(PFHxS_all_lm, c(protein_in_allpanels[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
-}
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_case, BioMe_proteome_PFAS_long, 
+            "~ PFDA_Aug21_q + self_reported_race + age_at_enrollment + sex  + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFDA_allpanel_adlm_q_case.csv")
 
 
-
-PFHxS_all_lm <- PFHxS_all_lm[-1,]
-PFHxS_all_lm$z.value <- as.numeric(PFHxS_all_lm$z.value)
-PFHxS_all_lm$p.value <- as.numeric(PFHxS_all_lm$p.value)
-
-
-q <-qvalue::qvalue(as.numeric(PFHxS_all_lm$p.value), lambda=0)
-PFHxS_all_lm$q.value <-  q$qvalues
-
-
-PFHxS_all_adlm_results<- PFHxS_all_lm %>% 
-  left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-  distinct()
-
-
-write.csv(PFHxS_all_adlm_results,
-          "~/Projects/BioMe/proteome/input/exwas/all panels/exwas_PFHxS_all_adlm_q.csv",
-          row.names = F)
-
-
-
-
-#----------------------- Continuous PFNA - tertile
-##---------------------- Uadjusted
-PFNA_all_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
-
-for(i in 1:length(protein_in_allpanels)){
-  
-  s_lm <- (lm(as.formula(paste0(protein_in_allpanels[i], "~ PFNA_Aug21_q")), 
-              data = BioMe_proteome_PFAS_wide))
-  
-  cov.m1 <- vcovHC(s_lm, type = "HC3")
-  
-  std.err <- sqrt(diag(cov.m1))
-  
-  r.est <- cbind(
-    Estimate = coef(s_lm)
-    , "Robust SE" = std.err
-    , z = (coef(s_lm)/std.err)
-    , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
-  
-  
-  PFNA_all_lm <- rbind(PFNA_all_lm, c(protein_in_allpanels[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
-}
-
-
-
-PFNA_all_lm <- PFNA_all_lm[-1,]
-PFNA_all_lm$z.value <- as.numeric(PFNA_all_lm$z.value)
-PFNA_all_lm$p.value <- as.numeric(PFNA_all_lm$p.value)
-
-
-q <-qvalue::qvalue(as.numeric(PFNA_all_lm$p.value), lambda=0)
-PFNA_all_lm$q.value <-  q$qvalues
-
-
-PFNA_all_unlm_results<- PFNA_all_lm %>% 
-  left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-  distinct()
-
-
-write.csv(PFNA_all_unlm_results,
-          "~/Projects/BioMe/proteome/input/exwas/all panels/exwas_PFNA_all_unlm_q.csv",
-          row.names = F)
-
-
-
+#----------------------- Continuous PFOA - quartile
 ##---------------------- Adjusted
-PFNA_all_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
 
-for(i in 1:length(protein_in_allpanels)){
-  
-  s_lm <- (lm(as.formula(paste0(protein_in_allpanels[i], "~ PFNA_Aug21_q + self_reported_race + age_at_enrollment + sex + bmi_at_enrollment+ c_date_enrl + smoking_at_enrollment")), 
-              data = BioMe_proteome_PFAS_wide))
-  
-  cov.m1 <- vcovHC(s_lm, type = "HC3")
-  
-  std.err <- sqrt(diag(cov.m1))
-  
-  r.est <- cbind(
-    Estimate = coef(s_lm)
-    , "Robust SE" = std.err
-    , z = (coef(s_lm)/std.err)
-    , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
-  
-  
-  PFNA_all_lm <- rbind(PFNA_all_lm, c(protein_in_allpanels[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
-}
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_case, BioMe_proteome_PFAS_long, 
+            "~ PFOA_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFOA_allpanel_adlm_q_case.csv")
 
 
-
-PFNA_all_lm <- PFNA_all_lm[-1,]
-PFNA_all_lm$z.value <- as.numeric(PFNA_all_lm$z.value)
-PFNA_all_lm$p.value <- as.numeric(PFNA_all_lm$p.value)
-
-
-q <-qvalue::qvalue(as.numeric(PFNA_all_lm$p.value), lambda=0)
-PFNA_all_lm$q.value <-  q$qvalues
-
-
-PFNA_all_adlm_results<- PFNA_all_lm %>% 
-  left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-  distinct()
-
-
-write.csv(PFNA_all_adlm_results,
-          "~/Projects/BioMe/proteome/input/exwas/all panels/exwas_PFNA_all_adlm_q.csv",
-          row.names = F)
-
-
-
-
-
-
-#----------------------- Continuous PFHpS - tertile
-##---------------------- Uadjusted
-PFHpS_all_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
-
-for(i in 1:length(protein_in_allpanels)){
-  
-  s_lm <- (lm(as.formula(paste0(protein_in_allpanels[i], "~ PFHpS_Aug21_q")), 
-              data = BioMe_proteome_PFAS_wide))
-  
-  cov.m1 <- vcovHC(s_lm, type = "HC3")
-  
-  std.err <- sqrt(diag(cov.m1))
-  
-  r.est <- cbind(
-    Estimate = coef(s_lm)
-    , "Robust SE" = std.err
-    , z = (coef(s_lm)/std.err)
-    , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
-  
-  
-  PFHpS_all_lm <- rbind(PFHpS_all_lm, c(protein_in_allpanels[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
-}
-
-
-
-PFHpS_all_lm <- PFHpS_all_lm[-1,]
-PFHpS_all_lm$z.value <- as.numeric(PFHpS_all_lm$z.value)
-PFHpS_all_lm$p.value <- as.numeric(PFHpS_all_lm$p.value)
-
-
-q <-qvalue::qvalue(as.numeric(PFHpS_all_lm$p.value), lambda=0)
-PFHpS_all_lm$q.value <-  q$qvalues
-
-
-PFHpS_all_unlm_results<- PFHpS_all_lm %>% 
-  left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-  distinct()
-
-
-write.csv(PFHpS_all_unlm_results,
-          "~/Projects/BioMe/proteome/input/exwas/all panels/exwas_PFHpS_all_unlm_q.csv",
-          row.names = F)
-
-
-
+#----------------------- Continuous PFOS - quartile
 ##---------------------- Adjusted
-PFHpS_all_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
 
-for(i in 1:length(protein_in_allpanels)){
-  
-  s_lm <- (lm(as.formula(paste0(protein_in_allpanels[i], "~ PFHpS_Aug21_q + self_reported_race + age_at_enrollment + sex + bmi_at_enrollment+ c_date_enrl + smoking_at_enrollment")), 
-              data = BioMe_proteome_PFAS_wide))
-  
-  cov.m1 <- vcovHC(s_lm, type = "HC3")
-  
-  std.err <- sqrt(diag(cov.m1))
-  
-  r.est <- cbind(
-    Estimate = coef(s_lm)
-    , "Robust SE" = std.err
-    , z = (coef(s_lm)/std.err)
-    , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
-  
-  
-  PFHpS_all_lm <- rbind(PFHpS_all_lm, c(protein_in_allpanels[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
-}
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_case, BioMe_proteome_PFAS_long, 
+            "~ PFOS_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFOS_allpanel_adlm_q_case.csv")
 
 
 
-PFHpS_all_lm <- PFHpS_all_lm[-1,]
-PFHpS_all_lm$z.value <- as.numeric(PFHpS_all_lm$z.value)
-PFHpS_all_lm$p.value <- as.numeric(PFHpS_all_lm$p.value)
+#----------------------- Continuous PFHxS - quartile
+#---------------------- Adjusted
 
-
-q <-qvalue::qvalue(as.numeric(PFHpS_all_lm$p.value), lambda=0)
-PFHpS_all_lm$q.value <-  q$qvalues
-
-
-PFHpS_all_adlm_results<- PFHpS_all_lm %>% 
-  left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-  distinct()
-
-
-write.csv(PFHpS_all_adlm_results,
-          "~/Projects/BioMe/proteome/input/exwas/all panels/exwas_PFHpS_all_adlm_q.csv",
-          row.names = F)
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_case, BioMe_proteome_PFAS_long, 
+            "~ PFHxS_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHxS_allpanel_adlm_q_case.csv")
 
 
 
+#----------------------- Continuous PFNA - quartile
+##---------------------- Adjusted
+
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_case, BioMe_proteome_PFAS_long, 
+            "~ PFNA_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFNA_allpanel_adlm_q_case.csv")
 
 
 
+#----------------------- Continuous PFHpS - quartile
+##---------------------- Adjusted
+
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_case, BioMe_proteome_PFAS_long, 
+            "~ PFHpS_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHpS_allpanel_adlm_q_case.csv")
+
+#----------------------- Continuous PFHpA - binary
+##---------------------- Adjusted
+
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_case, BioMe_proteome_PFAS_long, 
+            "~ PFHpA_Aug21_bi + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHpA_allpanel_adlm_bi_case.csv")
+
+#-------------------------------------------------- in control
+#----------------------- Continuous PFDA - quartile
+##---------------------- Adjusted
+
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_control, BioMe_proteome_PFAS_long, 
+            "~ PFDA_Aug21_q + self_reported_race + age_at_enrollment + sex  + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFDA_allpanel_adlm_q_control.csv")
+
+
+#----------------------- Continuous PFOA - quartile
+##---------------------- Adjusted
+
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_control, BioMe_proteome_PFAS_long, 
+            "~ PFOA_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFOA_allpanel_adlm_q_control.csv")
+
+
+#----------------------- Continuous PFOS - quartile
+##---------------------- Adjusted
+
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_control, BioMe_proteome_PFAS_long, 
+            "~ PFOS_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFOS_allpanel_adlm_q_control.csv")
 
 
 
+#----------------------- Continuous PFHxS - quartile
+#---------------------- Adjusted
+
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_control, BioMe_proteome_PFAS_long, 
+            "~ PFHxS_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHxS_allpanel_adlm_q_control.csv")
 
 
 
+#----------------------- Continuous PFNA - quartile
+##---------------------- Adjusted
 
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_control, BioMe_proteome_PFAS_long, 
+            "~ PFNA_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFNA_allpanel_adlm_q_control.csv")
+
+
+
+#----------------------- Continuous PFHpS - quartile
+##---------------------- Adjusted
+
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_control, BioMe_proteome_PFAS_long, 
+            "~ PFHpS_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHpS_allpanel_adlm_q_control.csv")
+
+#----------------------- Continuous PFHpA - binary
+##---------------------- Adjusted
+
+lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_control, BioMe_proteome_PFAS_long, 
+            "~ PFHpA_Aug21_bi + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHpA_allpanel_adlm_bi_control.csv")
 
 
 

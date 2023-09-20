@@ -20,7 +20,7 @@ library(corrplot)
 
 
 ##------------------------------------------- import data
-BioMe_proteome_PFAS_wide <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_wide.txt")
+BioMe_proteome_PFAS_wide <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_wide_norm_imputed_v2.txt")
 protein_in_panel <- fread("~/Projects/BioMe/proteome/input/analysis_sample/protein_in_panel.txt")
 BioMe_proteome_PFAS_long <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_long.txt")
 
@@ -28,12 +28,8 @@ BioMe_proteome_PFAS_long <- fread("~/Projects/BioMe/proteome/input/analysis_samp
 
 ##------------------------------------------- data processing
 
-## restrict to protein in inflammation panel
-BioMe_proteome_PFAS_inflammation<-  BioMe_proteome_PFAS_long %>% 
-                                    filter(Panel == "Inflammation")
-
 ## protein in inflammation panel
-protein_in_inflammation<- (protein_in_panel %>% filter(Panel == "Inflammation"))$protein
+protein_in_inflammation<- (protein_in_panel %>% filter(Panel == "Inflammation"))$OlinkID
 
 
 
@@ -196,7 +192,7 @@ lm_fit_info(protein_in_inflammation, BioMe_proteome_PFAS_wide, BioMe_proteome_PF
 ##---------------------- Adjusted
 
 lm_fit_info(protein_in_inflammation, BioMe_proteome_PFAS_wide, BioMe_proteome_PFAS_long, 
-            "~ PFDA_Aug21 + self_reported_race + age_at_enrollment + sex + bmi_at_enrollment + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/exwas_PFDA_inflam_adlm_cont.csv")
+            "~ PFDA_Aug21 + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/exwas_PFDA_inflam_adlm_cont.csv")
 
 
 #----------------------- Continuous PFDA - tertile
@@ -209,7 +205,7 @@ lm_fit_info(protein_in_inflammation, BioMe_proteome_PFAS_wide, BioMe_proteome_PF
 ##---------------------- Adjusted
 
 lm_fit_info(protein_in_inflammation, BioMe_proteome_PFAS_wide, BioMe_proteome_PFAS_long, 
-            "~ PFDA_Aug21_q + self_reported_race + age_at_enrollment + sex + bmi_at_enrollment + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/exwas_PFDA_inflam_adlm_q.csv")
+            "~ PFDA_Aug21_q + self_reported_race + age_at_enrollment + sex  + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/exwas_PFDA_inflam_adlm_q_imputed1.csv")
 
 
 #----------------------- Continuous PFOA - tertile

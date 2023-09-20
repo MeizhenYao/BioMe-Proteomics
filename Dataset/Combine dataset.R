@@ -375,6 +375,9 @@ BioMe_proteome_PFAS_long_removed<- BioMe_proteome_protname_removed %>%
                                    inner_join(subset(PFAS_epi_AUG21, select = -c(SampleID)), by="DID")
 
 
+
+
+
 # write.table(BioMe_proteome_PFAS_wide, "~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_wide.txt", row.names = FALSE)
 # 
 # write.table(BioMe_proteome_PFAS_long, "~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_long.txt", row.names = FALSE)
