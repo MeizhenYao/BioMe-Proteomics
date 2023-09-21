@@ -395,11 +395,11 @@ BioMe_proteome_PFAS_long <- fread("~/Projects/BioMe/proteome/input/analysis_samp
 
 
 protein_in_panel<-  BioMe_proteome_PFAS_long %>% 
-                    group_by(Panel, OlinkID) %>% 
+                    group_by(Panel, OlinkID, Protein_name, UniProt, Gene_name) %>% 
                     dplyr::summarise(count = n())
 
 
-# write.table(protein_in_panel, "~/Projects/BioMe/proteome/input/analysis_sample/protein_in_panel.txt", row.names = FALSE)
+ # write.table(protein_in_panel, "~/Projects/BioMe/proteome/input/analysis_sample/protein_in_panel.txt", row.names = FALSE)
 
 
 

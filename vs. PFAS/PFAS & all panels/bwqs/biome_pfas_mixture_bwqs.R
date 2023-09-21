@@ -34,180 +34,93 @@ library(iterators)
 library(parallel)
 library(anytime)
 
-cores=detectCores()
-cl <- makeCluster(10) 
-registerDoParallel(cl)
 
-start.time <- Sys.time()
-
+#####################
+## effect estimate ##
+#####################
 
 ##------------------------------------------- import data
-BioMe_proteome_PFAS_wide <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/BioMe_proteome_PFAS_wide_imputed.txt")
-BioMe_proteome_PFAS_long <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/BioMe_proteome_PFAS_long.txt")
+proteome_vs_pfas_bwqs_cardio <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/proteome_vs_pfas_bwqs_cardio.txt")
+proteome_vs_pfas_bwqs_cardio2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/proteome_vs_pfas_bwqs_cardio2.txt")
+proteome_vs_pfas_bwqs_inflammation <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/proteome_vs_pfas_bwqs_inflammation.txt")
+proteome_vs_pfas_bwqs_inflammation2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/proteome_vs_pfas_bwqs_inflammation2.txt")
+proteome_vs_pfas_bwqs_neuro <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/proteome_vs_pfas_bwqs_neuro.txt")
+proteome_vs_pfas_bwqs_neuro2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/proteome_vs_pfas_bwqs_neuro2.txt")
+proteome_vs_pfas_bwqs_oncology <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/proteome_vs_pfas_bwqs_oncology.txt")
+proteome_vs_pfas_bwqs_oncology2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/proteome_vs_pfas_bwqs_oncology2.txt")
 
 
-
-##------------------------------------------- prepare data
-## date of blood draw
-BioMe_proteome_PFAS_wide$date_enrl <- rep(NA_real_, nrow(BioMe_proteome_PFAS_wide))
-BioMe_proteome_PFAS_wide$month_yr_enrl<- as.character(BioMe_proteome_PFAS_wide$month_yr_enrl)
+protein_in_panel <- fread("~/Projects/BioMe/proteome/input/analysis_sample/protein_in_panel.txt")
 
 
-for(i in 1:nrow(BioMe_proteome_PFAS_wide)){
-  
-  x <- anytime::anydate(paste((strsplit(BioMe_proteome_PFAS_wide$month_yr_enrl[i],"-")[[1]][2]), " 1,", 2000 + as.numeric(strsplit(BioMe_proteome_PFAS_wide$month_yr_enrl[i],"-")[[1]][1])))
-  mydates <- as.Date(c("2011-01-01"))
-  BioMe_proteome_PFAS_wide$date_enrl[i] <- as.numeric((x - mydates[1])/365 )
-  
-}
-
-BioMe_proteome_PFAS_wide$c_date_enrl <- ifelse(BioMe_proteome_PFAS_wide$date_enrl > 0, 1,0)
-
-
-
-bwqs_data<- BioMe_proteome_PFAS_wide %>% 
-            dplyr::select(starts_with("OID"), ends_with("_q"), self_reported_race, gender, age_at_enrollment, smoking_at_enrollment, c_date_enrl, ipw)
+##------------------------------------------- data processing
+proteome_vs_pfas_bwqs<- rbind(proteome_vs_pfas_bwqs_cardio,
+                              proteome_vs_pfas_bwqs_cardio2,
+                              proteome_vs_pfas_bwqs_inflammation,
+                              proteome_vs_pfas_bwqs_inflammation2,
+                              proteome_vs_pfas_bwqs_neuro,
+                              proteome_vs_pfas_bwqs_neuro2,
+                              proteome_vs_pfas_bwqs_oncology,
+                              proteome_vs_pfas_bwqs_oncology2)
 
 
-bwqs_data_dummy<- as.data.frame(dummify(bwqs_data))
-
-
-
-##------------------------------------------- bwqs model fitting
-bwqs_data_proteins<- bwqs_data_dummy %>% 
-                     dplyr::select(starts_with("OID"))
-
-name_data_wqs <- c("PFDA_Aug21_q","PFHxS_Aug21_q","PFHpS_Aug21_q","PFNA_Aug21_q","PFOA_Aug21_q",
-                   "PFOS_Aug21_q")
-
-model_bwqs_gaussian_lasso <- "data {
-
-int<lower=0> N;              // number of individual
-int<lower=0> C1;             // number of element in the mix
-int<lower=0> K;              // number of covariates
-matrix[N,C1] XC1;            // matrix of first mix
-matrix[N,K] KV;	             // matrix of covariates
-vector[C1] DalpC1;           // vector of the Dirichlet coefficients for first mix
-vector[N] sw;                // IPW weights
-real y[N];                   // outcome gaussian variable
-}
-
-parameters {
-
-real <lower=0> sigma;
-real mu;                              // intercepts
-real beta;                            // coeffs by group
-vector[K] delta;                      // covariates coefficients
-real<lower=0> lambda_squared;         // penalization factor
-simplex[C1] WC1;                      // weights of first mix
-
-}
-transformed parameters {
-
-vector[N] Xb;
-Xb = mu + (XC1*WC1)*beta  + KV*delta;
-}
-model {
-
-mu ~ normal(0, 10);
-sigma ~ inv_gamma(0.01,0.01);
-lambda_squared ~ gamma(2,0.5);
-beta ~ normal(0,lambda_squared);
-for(j in 1:K) delta[j] ~ normal(0,K);
-WC1 ~ dirichlet(DalpC1);
-for(n in 1:N){
-  target +=  normal_lpdf(y[n]| Xb[n], sigma) * sw[n];
-}
-}
-
-"
-m_lasso_data_challenge <- rstan::stan_model(model_code =  model_bwqs_gaussian_lasso)
-
-data = bwqs_data_dummy
-
-bwqs_pfas_met_model <- data.frame(mean = NA_real_, se_mean = NA_real_, sd = NA_real_,
-                                lower = NA_real_, upper = NA_real_, n_eff = NA_real_,
-                                Rhat = NA_real_)
-
-
-
-start.time <- Sys.time()
-
-for(i in 1:2612){
-  ## specify parameter
-  y_name  <- colnames(bwqs_data_proteins)[i]
-  formula = as.formula( ~ self_reported_race.African.American
-                        + self_reported_race.European.American + age_at_enrollment
-                        + smoking_at_enrollment.No + gender.Female
-                        + c_date_enrl)
-  
-  KV_name <- all.vars(formula)
-  mix_name_1 <- name_data_wqs
-  
-  X1 = bwqs_data_dummy[,name_data_wqs]
-  
-  data_reg <- list(
-    
-    N   = nrow(bwqs_data_dummy),
-    C1  = length(mix_name_1),
-    XC1 = cbind(X1),
-    DalpC1 = rep(1, length(mix_name_1)),
-    KV = data[,KV_name],
-    K   = length(KV_name),
-    sw = as.vector(data[,"ipw"]),
-    y = as.vector(data[,y_name])
-  )
-  
-  
-  ## model fit
-  fit_lasso <- rstan::sampling(m_lasso_data_challenge,
-                               data = data_reg,
-                               chains = 1,
-                               iter = 100,
-                               thin = 1,
-                               refresh = 0, verbose = T,
-                               control=list(max_treedepth = 20,
-                                            adapt_delta = 0.999999999999999))
-  
-  
-  ## model result summary
-  sum_fit_lasso <- (summary(fit_lasso,
-                            probs = c(0.025, 0.975))$summary)
-  
-  
-  bwqs_pfas_met_model <-  rbind(bwqs_pfas_met_model,as.numeric(sum_fit_lasso[3,])) 
-  
-  
-}
-
-
-bwqs_pfas_met_model <- bwqs_pfas_met_model[-1,]
-
-bwqs_pfas_met_model$OlinkID <- colnames(bwqs_data_proteins)
-
-se = (bwqs_pfas_met_model$upper - bwqs_pfas_met_model$mean)/1.96
-pval <- pnorm(abs(bwqs_pfas_met_model$mean/se), lower.tail = F) 
-bwqs_pfas_met_model$p.value <- pval
+se = (proteome_vs_pfas_bwqs$upper - proteome_vs_pfas_bwqs$mean)/1.96
+pval <- pnorm(abs(proteome_vs_pfas_bwqs$mean/se), lower.tail = F) 
+proteome_vs_pfas_bwqs$p.value <- pval
 q <- qvalue::qvalue(pval, lambda = 0)
-bwqs_pfas_met_model$q.value <-  q$qvalues
+proteome_vs_pfas_bwqs$q.value <-  q$qvalues
 
 
-bwqs_pfas_met_model<- bwqs_pfas_met_model %>% 
-                      left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Protein_name")], by="OlinkID") %>% 
-                      distinct()
+proteome_vs_pfas_bwqs<- proteome_vs_pfas_bwqs %>% 
+                        left_join(protein_in_panel[,c("OlinkID", "Protein_name", "UniProt", "Gene_name")], by="OlinkID") 
+
+
+# write.table(proteome_vs_pfas_bwqs, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/proteome_vs_pfas_bwqs.txt", row.names = FALSE)
+
+
+#############
+## weights ##
+#############
+
+##------------------------------------------- import data
+bwqs_pfas_weight_cardio <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/bwqs_pfas_weight_cardio.txt")
+bwqs_pfas_weight_cardio2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/bwqs_pfas_weight_cardio2.txt")
+bwqs_pfas_weight_inflammation <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/bwqs_pfas_weight_inflammation.txt")
+bwqs_pfas_weight_inflammation2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/bwqs_pfas_weight_inflammation2.txt")
+bwqs_pfas_weight_neuro <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/bwqs_pfas_weight_neuro.txt")
+bwqs_pfas_weight_neuro2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/bwqs_pfas_weight_neuro2.txt")
+bwqs_pfas_weight_oncology <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/bwqs_pfas_weight_oncology.txt")
+bwqs_pfas_weight_oncology2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/bwqs_pfas_weight_oncology2.txt")
+
+protein_in_panel <- fread("~/Projects/BioMe/proteome/input/analysis_sample/protein_in_panel.txt")
+
+
+##------------------------------------------- data processing
+bwqs_pfas_weight<- data.frame(rbind(bwqs_pfas_weight_cardio,
+                                    bwqs_pfas_weight_cardio2,
+                                    bwqs_pfas_weight_inflammation,
+                                    bwqs_pfas_weight_inflammation2,
+                                    bwqs_pfas_weight_neuro,
+                                    bwqs_pfas_weight_neuro2,
+                                    bwqs_pfas_weight_oncology,
+                                    bwqs_pfas_weight_oncology2))
+
+
+old_name<- colnames(bwqs_pfas_weight)
+new_name<- c("PFDA", "PFHxS", "PFHpS", "PFNA", "PFOA", "PFOS", "OlinkID")
 
 
 
+setnames(bwqs_pfas_weight, old = old_name, new = new_name)
 
 
+bwqs_pfas_weight<- bwqs_pfas_weight %>% 
+                   left_join(protein_in_panel[,c("OlinkID", "Protein_name", "UniProt", "Gene_name")], by="OlinkID")
 
-write.csv(bwqs_pfas_met_model, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/proteome_vs_pfas_bwqs.csv",
-          row.names = F)
 
-end.time <- Sys.time()
-(time.taken <- end.time - start.time)
+# write.table(bwqs_pfas_weight, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/bwqs_pfas_weight.txt", row.names = FALSE)
 
-stopCluster(cl)
+
 
 
 

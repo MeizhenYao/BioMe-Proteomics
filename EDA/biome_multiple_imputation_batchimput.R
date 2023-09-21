@@ -64,7 +64,7 @@ flat_mat <- flatten_mat(all_cor) # can set return_mat = TRUE to print the flatte
 # stage 3: impute, join, and return
 imputed_proteins <- impute_batches(data = proteins,
                                    features = flat_mat, 
-                                   batch = 10,
+                                   batch = 5,
                                    n_trees = 100,
                                    seed = 31524)
 

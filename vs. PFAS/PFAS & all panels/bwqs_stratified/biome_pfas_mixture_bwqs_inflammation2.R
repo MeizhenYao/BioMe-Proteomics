@@ -66,7 +66,15 @@ BioMe_proteome_PFAS_wide$c_date_enrl <- ifelse(BioMe_proteome_PFAS_wide$date_enr
 
 
 
-bwqs_data<- BioMe_proteome_PFAS_wide %>% 
+## stratified by status
+BioMe_proteome_PFAS_wide_case<- BioMe_proteome_PFAS_wide %>% 
+  filter(td2_case_all == 1)
+
+BioMe_proteome_PFAS_wide_control<- BioMe_proteome_PFAS_wide %>% 
+  filter(td2_case_all == 0)
+
+
+bwqs_data<- BioMe_proteome_PFAS_wide_control %>% 
   dplyr::select(starts_with("OID"), ends_with("_q"), self_reported_race, gender, age_at_enrollment, smoking_at_enrollment, c_date_enrl, ipw)
 
 
@@ -75,7 +83,8 @@ bwqs_data_dummy<- as.data.frame(dummify(bwqs_data))
 
 
 ##------------------------------------------- bwqs model fitting
-protein<- protein_in_panel[1:10,]$OlinkID 
+
+protein<- (protein_in_panel %>% filter(Panel == "Inflammation_II"))$OlinkID
 
 bwqs_data_proteins<- bwqs_data_dummy %>% 
   dplyr::select(starts_with("OID"))
@@ -195,8 +204,8 @@ bwqs_pfas_met_model$OlinkID <- protein
 bwqs_pfas_weight$OlinkID <- protein
 
 
-write.table(bwqs_pfas_met_model, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs/proteome_vs_pfas_bwqs_check.txt", row.names = FALSE)
-write.table(bwqs_pfas_weight, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs/bwqs_pfas_weight_check.txt", row.names = FALSE)
+write.table(bwqs_pfas_met_model, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_control/proteome_vs_pfas_bwqs_inflammation2_control.txt", row.names = FALSE)
+write.table(bwqs_pfas_weight, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_control/bwqs_pfas_weight_inflammation2_control.txt", row.names = FALSE)
 
 
 end.time <- Sys.time()
