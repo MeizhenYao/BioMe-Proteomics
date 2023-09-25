@@ -74,7 +74,7 @@ BioMe_proteome_PFAS_wide_control<- BioMe_proteome_PFAS_wide %>%
 
 
 
-bwqs_data<- BioMe_proteome_PFAS_wide_control %>% 
+bwqs_data<- BioMe_proteome_PFAS_wide_case %>% 
   dplyr::select(starts_with("OID"), ends_with("_q"), self_reported_race, gender, age_at_enrollment, smoking_at_enrollment, c_date_enrl, ipw)
 
 
@@ -100,7 +100,6 @@ int<lower=0> K;              // number of covariates
 matrix[N,C1] XC1;            // matrix of first mix
 matrix[N,K] KV;	             // matrix of covariates
 vector[C1] DalpC1;           // vector of the Dirichlet coefficients for first mix
-vector[N] sw;                // IPW weights
 real y[N];                   // outcome gaussian variable
 }
 
@@ -128,7 +127,7 @@ beta ~ normal(0,lambda_squared);
 for(j in 1:K) delta[j] ~ normal(0,K);
 WC1 ~ dirichlet(DalpC1);
 for(n in 1:N){
-  target +=  normal_lpdf(y[n]| Xb[n], sigma) * sw[n];
+  target +=  normal_lpdf(y[n]| Xb[n], sigma);
 }
 }
 
@@ -168,7 +167,6 @@ for(i in 1:length(protein_in_inflammation)){
     DalpC1 = rep(1, length(mix_name_1)),
     KV = data[,KV_name],
     K   = length(KV_name),
-    sw = as.vector(data[,"ipw"]),
     y = as.vector(data[,y_name])
   )
   
@@ -204,8 +202,8 @@ bwqs_pfas_met_model$OlinkID <- protein_in_inflammation
 bwqs_pfas_weight$OlinkID <- protein_in_inflammation
 
 
-write.table(bwqs_pfas_met_model, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_control/proteome_vs_pfas_bwqs_inflammation_control.txt", row.names = FALSE)
-write.table(bwqs_pfas_weight, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_control/bwqs_pfas_weight_inflammation_control.txt", row.names = FALSE)
+write.table(bwqs_pfas_met_model, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_case_check/proteome_vs_pfas_bwqs_inflammation_case.txt", row.names = FALSE)
+write.table(bwqs_pfas_weight, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_case_check/bwqs_pfas_weight_inflammation_case.txt", row.names = FALSE)
 
 
 end.time <- Sys.time()
