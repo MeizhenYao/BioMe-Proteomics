@@ -33,7 +33,6 @@ library(doParallel)
 library(iterators)
 library(parallel)
 library(anytime)
-library(parameters)
 
 cores=detectCores()
 cl <- makeCluster(10) 
@@ -47,7 +46,12 @@ BioMe_proteome_PFAS_wide <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_pro
 protein_in_panel <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs/protein_in_panel.txt")
 BioMe_proteome_PFAS_long <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs/BioMe_proteome_PFAS_long.txt")
 
+## protein 
+protein_in_allpanels<- protein_in_panel$OlinkID
 
+## normalization for proteins
+BioMe_proteome_PFAS_wide<- BioMe_proteome_PFAS_wide %>% 
+  mutate_at(protein_in_allpanels, ~(scale(.) %>% as.vector))
 
 ##------------------------------------------- prepare data
 ## date of blood draw
@@ -77,7 +81,7 @@ bwqs_data_dummy<- as.data.frame(dummify(bwqs_data))
 
 ##------------------------------------------- bwqs model fitting
 
-protein_in_inflammation<- (protein_in_panel %>% filter(Panel == "Inflammation"))$OlinkID
+protein<- (protein_in_panel %>% filter(Panel == "Oncology"))$OlinkID
 
 bwqs_data_proteins<- bwqs_data_dummy %>% 
   dplyr::select(starts_with("OID"))
@@ -140,9 +144,9 @@ bwqs_pfas_weight<- data.frame(w1 = NA_real_, w2 = NA_real_, w3 = NA_real_,
 
 start.time <- Sys.time()
 
-for(i in 1:length(protein_in_inflammation)){
+for(i in 1:length(protein)){
   ## specify parameter
-  y_name  <- protein_in_inflammation[1]
+  y_name  <- protein[i]
   formula = as.formula( ~ self_reported_race.African.American
                         + self_reported_race.European.American + age_at_enrollment
                         + smoking_at_enrollment.No + gender.Female
@@ -189,19 +193,16 @@ for(i in 1:length(protein_in_inflammation)){
 }
 
 
-# model_parameters(fit_lasso, vcov = "HC3")
-
-
 bwqs_pfas_met_model <- bwqs_pfas_met_model[-1,]
 bwqs_pfas_weight <- bwqs_pfas_weight[-1,]
 
 
-bwqs_pfas_met_model$OlinkID <- protein_in_inflammation
-bwqs_pfas_weight$OlinkID <- protein_in_inflammation
+bwqs_pfas_met_model$OlinkID <- protein
+bwqs_pfas_weight$OlinkID <- protein
 
 
-write.table(bwqs_pfas_met_model, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs/proteome_vs_pfas_bwqs_inflammation.txt", row.names = FALSE)
-write.table(bwqs_pfas_weight, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs/bwqs_pfas_weight_inflammation.txt", row.names = FALSE)
+write.table(bwqs_pfas_met_model, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_scale/proteome_vs_pfas_bwqs_oncology.txt", row.names = FALSE)
+write.table(bwqs_pfas_weight, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_scale/bwqs_pfas_weight_oncology.txt", row.names = FALSE)
 
 
 end.time <- Sys.time()

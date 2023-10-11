@@ -30,7 +30,7 @@ protein_in_panel <- fread("~/Projects/BioMe/proteome/input/analysis_sample/prote
 BioMe_proteome_PFAS_long <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_long.txt")
 
 
-protein_in_allpanels<- protein_in_panel$protein
+protein_in_allpanels<- protein_in_panel$OlinkID
 
 
 
@@ -71,9 +71,12 @@ plasma_PFAS_baseline_info_name<- cbind(statistics,
 plasma_PFAS_baseline_info_name
 
 
-plasma_POP_info_name_table<- flextable(plasma_PFAS_baseline_info_name) %>% 
+plasma_POP_info_name_table<- flextable(plasma_PFAS_baseline_info_name) %>%
+  add_header_row(
+    values = c("", "Plasma PFAS concentration (ng/mL)"),
+    colwidths = c(1, 7)) %>% 
   set_header_labels(V1='PFOS_Aug21',	V2='PFOA_Aug21',	V3='PFNA_Aug21',	V4="PFDA_Aug21", V5="PFHpS_Aug21", V6="PFHxS_Aug21", V7="PFHpA_Aug21") %>% 
-  theme_box() 
+  align(align = "center", part = "all") 
 
 plasma_POP_info_name_table
 
@@ -149,6 +152,27 @@ jpeg("~/Projects/BioMe/proteome/output/EDA/distribution_imputed.jpeg",
 protein_distribution
 
 dev.off()
+
+
+
+BioMe_proteome_PFAS_long_imputed_scale<-  BioMe_proteome_PFAS_wide_imputed %>% 
+                                          mutate_at(vars(starts_with("OID")), ~(scale(.) %>% as.vector)) %>% 
+                                          pivot_longer(
+                                            cols = starts_with("OID"),
+                                            names_to = "OlinkID",
+                                            values_to = "NPX"
+                                          ) %>% 
+                                          left_join(BioMe_proteome_PFAS_long[,c("OlinkID", "Panel", "UniProt", "Protein_name", "Gene_name")], by = "OlinkID")
+
+
+protein_distribution<-  ggplot(BioMe_proteome_PFAS_long_imputed) +
+  geom_density(aes(x = NPX, fill=OlinkID), alpha=0.3) +
+  theme(legend.position = "none")
+
+
+
+
+
 
 ### protein number for each sample
 BioMe_proteome<- BioMe_proteome_PFAS_wide %>% 

@@ -33,7 +33,6 @@ library(doParallel)
 library(iterators)
 library(parallel)
 library(anytime)
-library(parameters)
 
 cores=detectCores()
 cl <- makeCluster(10) 
@@ -48,6 +47,12 @@ protein_in_panel <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bw
 BioMe_proteome_PFAS_long <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs/BioMe_proteome_PFAS_long.txt")
 
 
+## protein 
+protein_in_allpanels<- protein_in_panel$OlinkID
+
+## normalization for proteins
+BioMe_proteome_PFAS_wide<- BioMe_proteome_PFAS_wide %>% 
+  mutate_at(protein_in_allpanels, ~(scale(.) %>% as.vector))
 
 ##------------------------------------------- prepare data
 ## date of blood draw
@@ -66,8 +71,15 @@ for(i in 1:nrow(BioMe_proteome_PFAS_wide)){
 BioMe_proteome_PFAS_wide$c_date_enrl <- ifelse(BioMe_proteome_PFAS_wide$date_enrl > 0, 1,0)
 
 
+## stratified by status
+BioMe_proteome_PFAS_wide_case<- BioMe_proteome_PFAS_wide %>% 
+  filter(td2_case_all == 1)
 
-bwqs_data<- BioMe_proteome_PFAS_wide %>% 
+BioMe_proteome_PFAS_wide_control<- BioMe_proteome_PFAS_wide %>% 
+  filter(td2_case_all == 0)
+
+
+bwqs_data<- BioMe_proteome_PFAS_wide_control %>% 
   dplyr::select(starts_with("OID"), ends_with("_q"), self_reported_race, gender, age_at_enrollment, smoking_at_enrollment, c_date_enrl, ipw)
 
 
@@ -77,7 +89,7 @@ bwqs_data_dummy<- as.data.frame(dummify(bwqs_data))
 
 ##------------------------------------------- bwqs model fitting
 
-protein_in_inflammation<- (protein_in_panel %>% filter(Panel == "Inflammation"))$OlinkID
+protein<- (protein_in_panel %>% filter(Panel == "Oncology"))$OlinkID
 
 bwqs_data_proteins<- bwqs_data_dummy %>% 
   dplyr::select(starts_with("OID"))
@@ -93,7 +105,6 @@ int<lower=0> K;              // number of covariates
 matrix[N,C1] XC1;            // matrix of first mix
 matrix[N,K] KV;	             // matrix of covariates
 vector[C1] DalpC1;           // vector of the Dirichlet coefficients for first mix
-vector[N] sw;                // IPW weights
 real y[N];                   // outcome gaussian variable
 }
 
@@ -121,7 +132,7 @@ beta ~ normal(0,lambda_squared);
 for(j in 1:K) delta[j] ~ normal(0,K);
 WC1 ~ dirichlet(DalpC1);
 for(n in 1:N){
-  target +=  normal_lpdf(y[n]| Xb[n], sigma) * sw[n];
+  target +=  normal_lpdf(y[n]| Xb[n], sigma);
 }
 }
 
@@ -140,9 +151,9 @@ bwqs_pfas_weight<- data.frame(w1 = NA_real_, w2 = NA_real_, w3 = NA_real_,
 
 start.time <- Sys.time()
 
-for(i in 1:length(protein_in_inflammation)){
+for(i in 1:length(protein)){
   ## specify parameter
-  y_name  <- protein_in_inflammation[1]
+  y_name  <- protein[i]
   formula = as.formula( ~ self_reported_race.African.American
                         + self_reported_race.European.American + age_at_enrollment
                         + smoking_at_enrollment.No + gender.Female
@@ -161,7 +172,6 @@ for(i in 1:length(protein_in_inflammation)){
     DalpC1 = rep(1, length(mix_name_1)),
     KV = data[,KV_name],
     K   = length(KV_name),
-    sw = as.vector(data[,"ipw"]),
     y = as.vector(data[,y_name])
   )
   
@@ -189,19 +199,16 @@ for(i in 1:length(protein_in_inflammation)){
 }
 
 
-# model_parameters(fit_lasso, vcov = "HC3")
-
-
 bwqs_pfas_met_model <- bwqs_pfas_met_model[-1,]
 bwqs_pfas_weight <- bwqs_pfas_weight[-1,]
 
 
-bwqs_pfas_met_model$OlinkID <- protein_in_inflammation
-bwqs_pfas_weight$OlinkID <- protein_in_inflammation
+bwqs_pfas_met_model$OlinkID <- protein
+bwqs_pfas_weight$OlinkID <- protein
 
 
-write.table(bwqs_pfas_met_model, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs/proteome_vs_pfas_bwqs_inflammation.txt", row.names = FALSE)
-write.table(bwqs_pfas_weight, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs/bwqs_pfas_weight_inflammation.txt", row.names = FALSE)
+write.table(bwqs_pfas_met_model, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_scale_control/proteome_vs_pfas_bwqs_oncology_case.txt", row.names = FALSE)
+write.table(bwqs_pfas_weight, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_scale_control/bwqs_pfas_weight_oncology_case.txt", row.names = FALSE)
 
 
 end.time <- Sys.time()
