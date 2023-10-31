@@ -75,19 +75,19 @@ proteome_vs_pfas_bwqs<- proteome_vs_pfas_bwqs %>%
                         left_join(protein_in_panel[,c("OlinkID", "Protein_name", "UniProt", "Gene_name")], by="OlinkID") 
 
 # 
-# prot<- proteome_vs_pfas_bwqs %>% 
-#        arrange(p.value) %>% 
-#        filter(q.value < 0.05)
-# 
-# prot_neg<-  proteome_vs_pfas_bwqs %>% 
-#             arrange(p.value) %>% 
-#             filter(q.value < 0.05 & mean < 0)
-# 
-# prot_pos<-  proteome_vs_pfas_bwqs %>% 
-#             arrange(p.value) %>% 
-#             filter(q.value < 0.05 & mean > 0)
-# 
-# 
+prot<- proteome_vs_pfas_bwqs %>%
+       arrange(p.value) %>%
+       filter(q.value < 0.05)
+
+prot_neg<-  proteome_vs_pfas_bwqs %>%
+            arrange(p.value) %>%
+            filter(q.value < 0.05 & mean < 0)
+
+prot_pos<-  proteome_vs_pfas_bwqs %>%
+            arrange(p.value) %>%
+            filter(q.value < 0.05 & mean > 0)
+
+
 # write.csv(prot, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/scale/protein_sig.csv", row.names = FALSE)
 # write.csv(prot_neg, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/scale/protein_sig_neg.csv", row.names = FALSE)
 # write.csv(prot_pos, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/scale/protein_sig_pos.csv", row.names = FALSE)

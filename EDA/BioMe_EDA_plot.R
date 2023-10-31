@@ -30,7 +30,23 @@ protein_in_panel <- fread("~/Projects/BioMe/proteome/input/analysis_sample/prote
 BioMe_proteome_PFAS_long <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_long.txt")
 
 
+
+## protein 
 protein_in_allpanels<- protein_in_panel$OlinkID
+
+## normalization for proteins
+BioMe_proteome_PFAS_wide_imputed<- BioMe_proteome_PFAS_wide_imputed %>% 
+  mutate_at(protein_in_allpanels, ~(scale(.) %>% as.vector))
+
+
+
+BioMe_proteome_PFAS_long_imputed<- BioMe_proteome_PFAS_wide_imputed %>% 
+  pivot_longer(
+    cols = starts_with("OID"),
+    names_to = "OlinkID",
+    values_to = "NPX"
+  ) 
+
 
 
 
@@ -146,7 +162,7 @@ protein_distribution<-  ggplot(BioMe_proteome_PFAS_long_imputed) +
 
 
 
-jpeg("~/Projects/BioMe/proteome/output/EDA/distribution_imputed.jpeg",
+jpeg("~/Projects/BioMe/proteome/output/EDA/distribution_imputed_scale.jpeg",
      units="in", width=20, height=16, res=500)
 
 protein_distribution

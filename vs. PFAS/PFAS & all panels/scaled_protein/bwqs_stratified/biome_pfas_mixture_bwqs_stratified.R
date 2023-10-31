@@ -40,14 +40,14 @@ library(anytime)
 #####################
 
 ##------------------------------------------- import data
-proteome_vs_pfas_bwqs_cardio <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_check/proteome_vs_pfas_bwqs_cardio_case.txt")
-proteome_vs_pfas_bwqs_cardio2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_check/proteome_vs_pfas_bwqs_cardio2_case.txt")
-proteome_vs_pfas_bwqs_inflammation <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_check/proteome_vs_pfas_bwqs_inflammation_case.txt")
-proteome_vs_pfas_bwqs_inflammation2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_check/proteome_vs_pfas_bwqs_inflammation2_case.txt")
-proteome_vs_pfas_bwqs_neuro <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_check/proteome_vs_pfas_bwqs_neuro_case.txt")
-proteome_vs_pfas_bwqs_neuro2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_check/proteome_vs_pfas_bwqs_neuro2_case.txt")
-proteome_vs_pfas_bwqs_oncology <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_check/proteome_vs_pfas_bwqs_oncology_case.txt")
-proteome_vs_pfas_bwqs_oncology2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_check/proteome_vs_pfas_bwqs_oncology2_case.txt")
+proteome_vs_pfas_bwqs_cardio <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/proteome_vs_pfas_bwqs_cardio_case.txt")
+proteome_vs_pfas_bwqs_cardio2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/proteome_vs_pfas_bwqs_cardio2_case.txt")
+proteome_vs_pfas_bwqs_inflammation <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/proteome_vs_pfas_bwqs_inflammation_case.txt")
+proteome_vs_pfas_bwqs_inflammation2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/proteome_vs_pfas_bwqs_inflammation2_case.txt")
+proteome_vs_pfas_bwqs_neuro <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/proteome_vs_pfas_bwqs_neuro_case.txt")
+proteome_vs_pfas_bwqs_neuro2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/proteome_vs_pfas_bwqs_neuro2_case.txt")
+proteome_vs_pfas_bwqs_oncology <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/proteome_vs_pfas_bwqs_oncology_case.txt")
+proteome_vs_pfas_bwqs_oncology2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/proteome_vs_pfas_bwqs_oncology2_case.txt")
 
 
 protein_in_panel <- fread("~/Projects/BioMe/proteome/input/analysis_sample/protein_in_panel.txt")
@@ -75,7 +75,15 @@ proteome_vs_pfas_bwqs<- proteome_vs_pfas_bwqs %>%
                         left_join(protein_in_panel[,c("OlinkID", "Protein_name", "UniProt", "Gene_name")], by="OlinkID") 
 
 
-write.table(proteome_vs_pfas_bwqs, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_check/proteome_vs_pfas_bwqs_case.txt", row.names = FALSE)
+prot<- proteome_vs_pfas_bwqs %>%
+  arrange(p.value) %>%
+  filter(q.value < 0.05)
+
+
+
+
+write.csv(prot, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/protein_sig.csv", row.names = FALSE)
+write.table(proteome_vs_pfas_bwqs, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/proteome_vs_pfas_bwqs_case.txt", row.names = FALSE)
 
 
 #############
@@ -83,14 +91,14 @@ write.table(proteome_vs_pfas_bwqs, "~/Projects/BioMe/proteome/input/exwas/all pa
 #############
 
 ##------------------------------------------- import data
-bwqs_pfas_weight_cardio <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_check/bwqs_pfas_weight_cardio_case.txt")
-bwqs_pfas_weight_cardio2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_check/bwqs_pfas_weight_cardio2_case.txt")
-bwqs_pfas_weight_inflammation <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_check/bwqs_pfas_weight_inflammation_case.txt")
-bwqs_pfas_weight_inflammation2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_check/bwqs_pfas_weight_inflammation2_case.txt")
-bwqs_pfas_weight_neuro <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_check/bwqs_pfas_weight_neuro_case.txt")
-bwqs_pfas_weight_neuro2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_check/bwqs_pfas_weight_neuro2_case.txt")
-bwqs_pfas_weight_oncology <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_check/bwqs_pfas_weight_oncology_case.txt")
-bwqs_pfas_weight_oncology2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_check/bwqs_pfas_weight_oncology2_case.txt")
+bwqs_pfas_weight_cardio <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/bwqs_pfas_weight_cardio_case.txt")
+bwqs_pfas_weight_cardio2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/bwqs_pfas_weight_cardio2_case.txt")
+bwqs_pfas_weight_inflammation <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/bwqs_pfas_weight_inflammation_case.txt")
+bwqs_pfas_weight_inflammation2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/bwqs_pfas_weight_inflammation2_case.txt")
+bwqs_pfas_weight_neuro <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/bwqs_pfas_weight_neuro_case.txt")
+bwqs_pfas_weight_neuro2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/bwqs_pfas_weight_neuro2_case.txt")
+bwqs_pfas_weight_oncology <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/bwqs_pfas_weight_oncology_case.txt")
+bwqs_pfas_weight_oncology2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/bwqs_pfas_weight_oncology2_case.txt")
 
 protein_in_panel <- fread("~/Projects/BioMe/proteome/input/analysis_sample/protein_in_panel.txt")
 
@@ -118,7 +126,7 @@ bwqs_pfas_weight<- bwqs_pfas_weight %>%
                    left_join(protein_in_panel[,c("OlinkID", "Protein_name", "UniProt", "Gene_name")], by="OlinkID")
 
 
-write.table(bwqs_pfas_weight, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_check/bwqs_pfas_weight_case.txt", row.names = FALSE)
+write.table(bwqs_pfas_weight, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/bwqs_pfas_weight_case.txt", row.names = FALSE)
 
 
 
@@ -129,14 +137,14 @@ write.table(bwqs_pfas_weight, "~/Projects/BioMe/proteome/input/exwas/all panels/
 #####################
 
 ##------------------------------------------- import data
-proteome_vs_pfas_bwqs_cardio <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_check/proteome_vs_pfas_bwqs_cardio_control.txt")
-proteome_vs_pfas_bwqs_cardio2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_check/proteome_vs_pfas_bwqs_cardio2_control.txt")
-proteome_vs_pfas_bwqs_inflammation <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_check/proteome_vs_pfas_bwqs_inflammation_control.txt")
-proteome_vs_pfas_bwqs_inflammation2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_check/proteome_vs_pfas_bwqs_inflammation2_control.txt")
-proteome_vs_pfas_bwqs_neuro <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_check/proteome_vs_pfas_bwqs_neuro_control.txt")
-proteome_vs_pfas_bwqs_neuro2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_check/proteome_vs_pfas_bwqs_neuro2_control.txt")
-proteome_vs_pfas_bwqs_oncology <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_check/proteome_vs_pfas_bwqs_oncology_control.txt")
-proteome_vs_pfas_bwqs_oncology2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_check/proteome_vs_pfas_bwqs_oncology2_control.txt")
+proteome_vs_pfas_bwqs_cardio <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/proteome_vs_pfas_bwqs_cardio_control.txt")
+proteome_vs_pfas_bwqs_cardio2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/proteome_vs_pfas_bwqs_cardio2_control.txt")
+proteome_vs_pfas_bwqs_inflammation <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/proteome_vs_pfas_bwqs_inflammation_control.txt")
+proteome_vs_pfas_bwqs_inflammation2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/proteome_vs_pfas_bwqs_inflammation2_control.txt")
+proteome_vs_pfas_bwqs_neuro <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/proteome_vs_pfas_bwqs_neuro_control.txt")
+proteome_vs_pfas_bwqs_neuro2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/proteome_vs_pfas_bwqs_neuro2_control.txt")
+proteome_vs_pfas_bwqs_oncology <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/proteome_vs_pfas_bwqs_oncology_control.txt")
+proteome_vs_pfas_bwqs_oncology2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/proteome_vs_pfas_bwqs_oncology2_control.txt")
 
 
 protein_in_panel <- fread("~/Projects/BioMe/proteome/input/analysis_sample/protein_in_panel.txt")
@@ -164,7 +172,16 @@ proteome_vs_pfas_bwqs<- proteome_vs_pfas_bwqs %>%
   left_join(protein_in_panel[,c("OlinkID", "Protein_name", "UniProt", "Gene_name")], by="OlinkID") 
 
 
-write.table(proteome_vs_pfas_bwqs, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_check/proteome_vs_pfas_bwqs_control.txt", row.names = FALSE)
+
+prot<- proteome_vs_pfas_bwqs %>%
+  arrange(p.value) %>%
+  filter(q.value < 0.05)
+
+
+
+
+write.csv(prot, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/protein_sig.csv", row.names = FALSE)
+write.table(proteome_vs_pfas_bwqs, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/proteome_vs_pfas_bwqs_control.txt", row.names = FALSE)
 
 
 #############
@@ -172,14 +189,14 @@ write.table(proteome_vs_pfas_bwqs, "~/Projects/BioMe/proteome/input/exwas/all pa
 #############
 
 ##------------------------------------------- import data
-bwqs_pfas_weight_cardio <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_check/bwqs_pfas_weight_cardio_control.txt")
-bwqs_pfas_weight_cardio2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_check/bwqs_pfas_weight_cardio2_control.txt")
-bwqs_pfas_weight_inflammation <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_check/bwqs_pfas_weight_inflammation_control.txt")
-bwqs_pfas_weight_inflammation2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_check/bwqs_pfas_weight_inflammation2_control.txt")
-bwqs_pfas_weight_neuro <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_check/bwqs_pfas_weight_neuro_control.txt")
-bwqs_pfas_weight_neuro2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_check/bwqs_pfas_weight_neuro2_control.txt")
-bwqs_pfas_weight_oncology <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_check/bwqs_pfas_weight_oncology_control.txt")
-bwqs_pfas_weight_oncology2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_check/bwqs_pfas_weight_oncology2_control.txt")
+bwqs_pfas_weight_cardio <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/bwqs_pfas_weight_cardio_control.txt")
+bwqs_pfas_weight_cardio2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/bwqs_pfas_weight_cardio2_control.txt")
+bwqs_pfas_weight_inflammation <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/bwqs_pfas_weight_inflammation_control.txt")
+bwqs_pfas_weight_inflammation2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/bwqs_pfas_weight_inflammation2_control.txt")
+bwqs_pfas_weight_neuro <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/bwqs_pfas_weight_neuro_control.txt")
+bwqs_pfas_weight_neuro2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/bwqs_pfas_weight_neuro2_control.txt")
+bwqs_pfas_weight_oncology <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/bwqs_pfas_weight_oncology_control.txt")
+bwqs_pfas_weight_oncology2 <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/bwqs_pfas_weight_oncology2_control.txt")
 
 protein_in_panel <- fread("~/Projects/BioMe/proteome/input/analysis_sample/protein_in_panel.txt")
 
@@ -207,7 +224,7 @@ bwqs_pfas_weight<- bwqs_pfas_weight %>%
   left_join(protein_in_panel[,c("OlinkID", "Protein_name", "UniProt", "Gene_name")], by="OlinkID")
 
 
-write.table(bwqs_pfas_weight, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_check/bwqs_pfas_weight_control.txt", row.names = FALSE)
+write.table(bwqs_pfas_weight, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/bwqs_pfas_weight_control.txt", row.names = FALSE)
 
 
 

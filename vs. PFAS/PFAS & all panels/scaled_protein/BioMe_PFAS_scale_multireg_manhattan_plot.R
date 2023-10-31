@@ -48,20 +48,62 @@ PFHpS_all_adlm_results <- read.csv("~/Projects/BioMe/proteome/input/exwas/all pa
 
 
 
+length((PFHpS_all_adlm_results %>% filter(q.value<0.05 & Value > 0))$p.value)
+length((PFHpS_all_adlm_results %>% filter(q.value<0.05 & Value < 0))$p.value)
+
+
+
+PFDA<-  PFDA_all_adlm_results%>%
+        mutate(sig = paste(Protein_name, "(", PFAS, ")"))%>%
+        arrange(p.value) %>% 
+        slice_head(n = 3)  %>%
+        pull(sig)
+
+PFOA<-  PFOA_all_adlm_results%>%
+  mutate(sig = paste(Protein_name, "(", PFAS, ")"))%>%
+  arrange(p.value) %>% 
+  slice_head(n = 1)  %>%
+  pull(sig)
+
+PFOS<-  PFOS_all_adlm_results%>%
+  mutate(sig = paste(Protein_name, "(", PFAS, ")"))%>%
+  arrange(p.value) %>% 
+  slice_head(n = 3)  %>%
+  pull(sig)
+
+PFHxS<-  PFHxS_all_adlm_results%>%
+  mutate(sig = paste(Protein_name, "(", PFAS, ")"))%>%
+  arrange(p.value) %>% 
+  slice_head(n = 3)  %>%
+  pull(sig)
+
+PFNA<-  PFNA_all_adlm_results%>%
+  mutate(sig = paste(Protein_name, "(", PFAS, ")"))%>%
+  arrange(p.value) %>% 
+  slice_head(n = 3)  %>%
+  pull(sig)
+
+PFHpS<-  PFHpS_all_adlm_results%>%
+  mutate(sig = paste(Protein_name, "(", PFAS, ")"))%>%
+  arrange(p.value) %>% 
+  slice_head(n = 3)  %>%
+  pull(sig)
+
+
 ## combine together
 individual_pfas<- rbind(PFDA_all_adlm_results,
                         PFOA_all_adlm_results,
                         PFOS_all_adlm_results,
                         PFHxS_all_adlm_results,
                         PFNA_all_adlm_results,
-                        PFHpS_all_adlm_results) %>%
-                  mutate(sig = paste(Protein_name, "(", PFAS, ")"))
+                        PFHpS_all_adlm_results)%>%
+                  mutate(sig = paste(Protein_name, "(", PFAS, ")")) 
 
-
-top_15_name<- individual_pfas %>%
-              arrange(p.value) %>% 
-              slice_head(n = 20)  %>%
-              pull(sig)
+# 
+# top_15_name<- individual_pfas %>%
+#               arrange(p.value) %>% 
+#               slice_head(n = 20)  %>%
+#               pull(sig)
 
 
 # pval <- individual_pfas$p.value
@@ -89,10 +131,10 @@ manhplot <- ggplot(individual_pfas, aes(x = PFAS, y = -log10(p.value),
                                         color = Association)) +
             geom_hline(yintercept = -log(cut_label, base = 10), linewidth = 1.2,color = "grey40", linetype = "solid") + 
             geom_label_repel(data = subset(individual_pfas, 
-                                           sig %in% top_15_name),
-                             size = 4,
+                                           sig %in% c(PFDA, PFOA, PFOS, PFHxS, PFHpS, PFNA)),
+                             size = 6,
                              aes(label = Protein_name), position = position_jitter(width = 0.4, seed = 3215),
-                             max.overlaps = getOption("ggrepel.max.overlaps", default = 30),
+                             max.overlaps = getOption("ggrepel.max.overlaps", default = 100),
                              segment.color = 'transparent') + 
             geom_point(aes(size = -log10(p.value)), position = position_jitter(width = 0.4, seed = 3215)) +
             scale_color_manual(values=c("FDR > 0.05 & p.value > 0.05" = "grey",
@@ -101,25 +143,21 @@ manhplot <- ggplot(individual_pfas, aes(x = PFAS, y = -log10(p.value),
                                         "FDR < 0.05 (Positive)" = "red")) +
             scale_size_continuous(range = c(0.5,3)) +
             labs(x = NULL) + 
-            theme_bw() +
+            theme_classic() +
             theme( 
-              legend.title = element_text(size = 14, face = "bold"),
-              legend.text = element_text(size = 14, face = "bold"),
+              legend.title = element_text(size = 24, face = "bold"),
+              legend.text = element_text(size = 24, face = "bold"),
               plot.title = element_text(size = 24, face = "bold"),
-              axis.text.x= element_text(size = 14, face = "bold"),
-              axis.text.y = element_text(size = 14, face = "bold"),
-              axis.title=element_text(size=14,face="bold"))
+              axis.text.x= element_text(size = 24, face = "bold"),
+              axis.text.y = element_text(size = 24, face = "bold"),
+              axis.title=element_text(size=24,face="bold"))
 
-
-
-
-manhplot
 
 
 
 
 jpeg("~/Projects/BioMe/proteome/output/PFAS vs. all panels/multireg/imputed/manhat/manhplot.jpeg",
-     units="in", width=24, height=14, res=500)
+     units="in", width=26, height=16, res=500)
 
 manhplot
 

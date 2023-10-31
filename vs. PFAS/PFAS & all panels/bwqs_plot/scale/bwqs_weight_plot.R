@@ -19,12 +19,12 @@ library(ggrepel)
 
 
 ##------------------------------------------- import data
-proteome_vs_pfas_bwqs <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/proteome_vs_pfas_bwqs.txt")
-bwqs_pfas_weight <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/bwqs_pfas_weight.txt")
-proteome_vs_pfas_bwqs_case <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case/proteome_vs_pfas_bwqs_case.txt")
-bwqs_pfas_weight_case <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case/bwqs_pfas_weight_case.txt")
-proteome_vs_pfas_bwqs_control <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control/proteome_vs_pfas_bwqs_control.txt")
-bwqs_pfas_weight_control <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control/bwqs_pfas_weight_control.txt")
+proteome_vs_pfas_bwqs <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/scale/proteome_vs_pfas_bwqs.txt")
+bwqs_pfas_weight <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/scale/bwqs_pfas_weight.txt")
+proteome_vs_pfas_bwqs_case <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/proteome_vs_pfas_bwqs_case.txt")
+bwqs_pfas_weight_case <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/bwqs_pfas_weight_case.txt")
+proteome_vs_pfas_bwqs_control <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/proteome_vs_pfas_bwqs_control.txt")
+bwqs_pfas_weight_control <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/bwqs_pfas_weight_control.txt")
 protein_in_panel <- fread("~/Projects/BioMe/proteome/input/analysis_sample/protein_in_panel.txt")
 
 
@@ -68,18 +68,20 @@ vol <- (ggplot(bwqs_pfas_weight_long, aes(x=PFAS, y=Gene_name)) +
                                na.value = "grey50",
                                guide = "colourbar",
                                aesthetics = "fill") +
-          labs(title = "Estimated Weight from BWQS",
-               y = "Protein",
-               x = "PFAS"))
+          labs(title = "",
+               y = "Proteins",
+               x = ""))
 
 
 volcano_pos_pfas_met <- vol + theme(plot.title = element_text(size = 24, face = "bold"),
-                                    axis.text.x= element_text(size = 14, face = "bold"),
+                                    axis.text.x= element_text(size = 22, face = "bold"),
                                     axis.text.y = element_blank(),
-                                    axis.title=element_text(size=14,face="bold"))
+                                    legend.text = element_text(size = 22, face = "bold"),
+                                    legend.title = element_text(size = 22, face = "bold"),
+                                    axis.title=element_text(size=22,face="bold"))
 
 
-jpeg("~/Projects/BioMe/proteome/output/PFAS vs. all panels/bwqs/bwqs_all_weight_heatmap.jpeg",
+jpeg("~/Projects/BioMe/proteome/output/PFAS vs. all panels/bwqs/scale/bwqs_all_weight_heatmap.jpeg",
      units="in", width=16, height=12, res=500)
 
 volcano_pos_pfas_met
