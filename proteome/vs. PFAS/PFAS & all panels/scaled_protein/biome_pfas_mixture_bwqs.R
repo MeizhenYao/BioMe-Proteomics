@@ -91,10 +91,10 @@ prot_pvalue<- proteome_vs_pfas_bwqs %>%
               arrange(p.value) %>%
               filter(p.value < 0.05)
 
-# write.csv(prot_pvalue, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/scale/protein_sig_pvalue.csv", row.names = FALSE)
-# write.csv(prot, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/scale/protein_sig.csv", row.names = FALSE)
-# write.csv(prot_neg, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/scale/protein_sig_neg.csv", row.names = FALSE)
-# write.csv(prot_pos, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/scale/protein_sig_pos.csv", row.names = FALSE)
+write.csv(prot_pvalue, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/scale/protein_sig_pvalue.csv", row.names = FALSE)
+write.csv(prot, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/scale/protein_sig.csv", row.names = FALSE)
+write.csv(prot_neg, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/scale/protein_sig_neg.csv", row.names = FALSE)
+write.csv(prot_pos, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/scale/protein_sig_pos.csv", row.names = FALSE)
 
 write.table(proteome_vs_pfas_bwqs, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/scale/proteome_vs_pfas_bwqs.txt", row.names = FALSE)
 

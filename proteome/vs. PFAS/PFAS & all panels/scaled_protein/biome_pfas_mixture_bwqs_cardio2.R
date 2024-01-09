@@ -72,7 +72,7 @@ BioMe_proteome_PFAS_wide$c_date_enrl <- ifelse(BioMe_proteome_PFAS_wide$date_enr
 
 
 bwqs_data<- BioMe_proteome_PFAS_wide %>% 
-  dplyr::select(starts_with("OID"), ends_with("_q"), self_reported_race, gender, age_at_enrollment, smoking_at_enrollment, c_date_enrl, ipw)
+  dplyr::select(starts_with("OID"), ends_with("_q"), self_reported_race, gender, age_at_enrollment, c_date_enrl, ipw)
 
 
 bwqs_data_dummy<- as.data.frame(dummify(bwqs_data))
@@ -149,7 +149,7 @@ for(i in 1:length(protein)){
   y_name  <- protein[i]
   formula = as.formula( ~ self_reported_race.African.American
                         + self_reported_race.European.American + age_at_enrollment
-                        + smoking_at_enrollment.No + gender.Female
+                        + gender.Female
                         + c_date_enrl)
   
   KV_name <- all.vars(formula)

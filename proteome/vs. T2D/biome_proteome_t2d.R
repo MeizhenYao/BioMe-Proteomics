@@ -99,7 +99,6 @@ for(i in 1:length(protein)){
   s_lm <- (glm(td2_case_all ~ data_proteins[,i]
                + self_reported_race.African.American + self_reported_race.European.American 
                + age_at_enrollment
-               + smoking_at_enrollment.No 
                + gender.Female
                + c_date_enrl , data = analysis_data_dummy, family=binomial))
   
@@ -148,6 +147,14 @@ write.table(proteome_t2d_model, "~/Projects/BioMe/proteome/input/pwas/proteome_v
 prot<-  proteome_t2d_model %>%
   arrange(p.value) %>%
   filter(q.value < 0.05)
+
+prot_pos<-  proteome_t2d_model %>%
+  arrange(p.value) %>%
+  filter(q.value < 0.05 & Value > 0)
+
+prot_neg<-  proteome_t2d_model %>%
+  arrange(p.value) %>%
+  filter(q.value < 0.05 & Value < 0)
 
 
 prot1<-  proteome_t2d_model %>%

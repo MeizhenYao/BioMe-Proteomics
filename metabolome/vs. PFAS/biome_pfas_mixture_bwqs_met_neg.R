@@ -42,38 +42,13 @@ start.time <- Sys.time()
 
 
 ##------------------------------------------- import data
-BioMe_proteome_PFAS_wide <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs/BioMe_proteome_PFAS_wide_imputed.txt")
-protein_in_panel <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs/protein_in_panel.txt")
-BioMe_proteome_PFAS_long <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs/BioMe_proteome_PFAS_long.txt")
+BioMe_proteome_PFAS_wide <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_metabolome/bwqs/BioMe_metabolome_neg_PFAS_wide.txt")
 
-
-## protein 
-protein_in_allpanels<- protein_in_panel$OlinkID
-
-## normalization for proteins
-BioMe_proteome_PFAS_wide<- BioMe_proteome_PFAS_wide %>% 
-  mutate_at(protein_in_allpanels, ~(scale(.) %>% as.vector))
-
+# /sc/arion/work/yaom03/biome_proteome/pfas_metabolome/bwqs
 ##------------------------------------------- prepare data
-## date of blood draw
-BioMe_proteome_PFAS_wide$date_enrl <- rep(NA_real_, nrow(BioMe_proteome_PFAS_wide))
-BioMe_proteome_PFAS_wide$month_yr_enrl<- as.character(BioMe_proteome_PFAS_wide$month_yr_enrl)
-
-
-for(i in 1:nrow(BioMe_proteome_PFAS_wide)){
-  
-  x <- anytime::anydate(paste((strsplit(BioMe_proteome_PFAS_wide$month_yr_enrl[i],"-")[[1]][2]), " 1,", 2000 + as.numeric(strsplit(BioMe_proteome_PFAS_wide$month_yr_enrl[i],"-")[[1]][1])))
-  mydates <- as.Date(c("2011-01-01"))
-  BioMe_proteome_PFAS_wide$date_enrl[i] <- as.numeric((x - mydates[1])/365 )
-  
-}
-
-BioMe_proteome_PFAS_wide$c_date_enrl <- ifelse(BioMe_proteome_PFAS_wide$date_enrl > 0, 1,0)
-
-
 
 bwqs_data<- BioMe_proteome_PFAS_wide %>% 
-  dplyr::select(starts_with("OID"), ends_with("_q"), self_reported_race, gender, age_at_enrollment, c_date_enrl, ipw)
+  dplyr::select(starts_with("neg"), ends_with("_q"), self_reported_race, gender, age_at_enrollment, c_date_enrl, sw)
 
 
 bwqs_data_dummy<- as.data.frame(dummify(bwqs_data))
@@ -82,10 +57,10 @@ bwqs_data_dummy<- as.data.frame(dummify(bwqs_data))
 
 ##------------------------------------------- bwqs model fitting
 
-protein<- (protein_in_panel %>% filter(Panel == "Oncology_II"))$OlinkID
+protein<- colnames(bwqs_data %>% dplyr::select(starts_with("neg")))
 
 bwqs_data_proteins<- bwqs_data_dummy %>% 
-  dplyr::select(starts_with("OID"))
+  dplyr::select(starts_with("neg"))
 
 name_data_wqs <- c("PFDA_Aug21_q","PFHxS_Aug21_q","PFHpS_Aug21_q","PFNA_Aug21_q","PFOA_Aug21_q",
                    "PFOS_Aug21_q")
@@ -149,7 +124,8 @@ for(i in 1:length(protein)){
   ## specify parameter
   y_name  <- protein[i]
   formula = as.formula( ~ self_reported_race.African.American
-                        + self_reported_race.European.American + age_at_enrollment
+                        + self_reported_race.European.American 
+                        + age_at_enrollment
                         + gender.Female
                         + c_date_enrl)
   
@@ -166,7 +142,7 @@ for(i in 1:length(protein)){
     DalpC1 = rep(1, length(mix_name_1)),
     KV = data[,KV_name],
     K   = length(KV_name),
-    sw = as.vector(data[,"ipw"]),
+    sw = as.vector(data[,"sw"]),
     y = as.vector(data[,y_name])
   )
   
@@ -198,12 +174,14 @@ bwqs_pfas_met_model <- bwqs_pfas_met_model[-1,]
 bwqs_pfas_weight <- bwqs_pfas_weight[-1,]
 
 
-bwqs_pfas_met_model$OlinkID <- protein
-bwqs_pfas_weight$OlinkID <- protein
+bwqs_pfas_met_model$met <- protein
+bwqs_pfas_weight$met <- protein
 
 
-write.table(bwqs_pfas_met_model, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_scale/proteome_vs_pfas_bwqs_oncology2.txt", row.names = FALSE)
-write.table(bwqs_pfas_weight, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_scale/bwqs_pfas_weight_oncology2.txt", row.names = FALSE)
+
+
+write.table(bwqs_pfas_met_model, "/sc/arion/work/yaom03/biome_proteome/pfas_metabolome/bwqs/met_vs_pfas_bwqs_neg.txt", row.names = FALSE)
+write.table(bwqs_pfas_weight, "/sc/arion/work/yaom03/biome_proteome/pfas_metabolome/bwqs/met_pfas_weight_neg.txt", row.names = FALSE)
 
 
 end.time <- Sys.time()

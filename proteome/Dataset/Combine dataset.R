@@ -149,7 +149,6 @@ BioMe_proteome_wide_removed<- BioMe_proteome_protname_removed %>%
 
 
 length(intersect(BioMe_proteome_wide$SampleID, BioMe_customer$SampleID))
-length(intersect(BioMe_customer$DID, Epi_data$DID))
 
 
 #------------------------------------------- EPI data
@@ -389,6 +388,7 @@ BioMe_proteome_PFAS_long_removed<- BioMe_proteome_protname_removed %>%
 
 #------------------------------------------- Multiple imputation for covariates & proteins (run on Minerva)
 
+BioMe_proteome_PFAS_wide <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_wide.txt")
 
 #------------------------------------------- protein in each panel
 BioMe_proteome_PFAS_long <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_long.txt")

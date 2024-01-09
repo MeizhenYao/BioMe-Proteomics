@@ -23,8 +23,8 @@ proteome_vs_pfas_bwqs <- fread("~/Projects/BioMe/proteome/input/exwas/all panels
 proteome_t2d_model <- fread("~/Projects/BioMe/proteome/input/pwas/proteome_vs_t2d_scale.txt")
 
 
-proteome_pfas<- (proteome_vs_pfas_bwqs %>% filter(q.value < 0.05))$Protein_name
-proteome_t2d<- (proteome_t2d_model %>% filter(q.value < 0.05))$Protein_name
+proteome_pfas<- (proteome_vs_pfas_bwqs %>% filter(q.value < 0.1))$Protein_name
+proteome_t2d<- (proteome_t2d_model %>% filter(q.value < 0.1))$Protein_name
 common<- intersect(proteome_pfas, proteome_t2d)
 
 
