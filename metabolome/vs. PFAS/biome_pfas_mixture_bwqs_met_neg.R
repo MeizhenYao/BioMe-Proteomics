@@ -33,7 +33,7 @@ library(doParallel)
 library(iterators)
 library(parallel)
 library(anytime)
-
+ # edit this
 cores=detectCores()
 cl <- makeCluster(10) 
 registerDoParallel(cl)
