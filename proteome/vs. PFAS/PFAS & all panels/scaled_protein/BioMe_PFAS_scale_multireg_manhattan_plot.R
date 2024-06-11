@@ -39,17 +39,17 @@ library(ggrepel)
 
 ##------------------------------------------- import data
 
-PFDA_all_adlm_results <- read.csv("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFDA_allpanel_adlm_q.csv") %>% mutate (PFAS = "PFDA")
-PFOA_all_adlm_results <- read.csv("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFOA_allpanel_adlm_q.csv") %>% mutate (PFAS = "PFOA")
-PFOS_all_adlm_results <- read.csv("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFOS_allpanel_adlm_q.csv") %>% mutate (PFAS = "PFOS")
-PFHxS_all_adlm_results <- read.csv("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHxS_allpanel_adlm_q.csv") %>% mutate (PFAS = "PFHxS")
-PFNA_all_adlm_results <- read.csv("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFNA_allpanel_adlm_q.csv") %>% mutate (PFAS = "PFNA")
-PFHpS_all_adlm_results <- read.csv("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHpS_allpanel_adlm_q.csv") %>% mutate (PFAS = "PFHpS")
+PFDA_all_adlm_results <- read.csv("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/individual/exwas_PFAS_allpanel_adlm_q.csv") %>% filter (PFAS == "PFDA_Aug21_q") 
+PFOA_all_adlm_results <- read.csv("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/individual/exwas_PFAS_allpanel_adlm_q.csv") %>% filter (PFAS == "PFOA_Aug21_q")
+PFOS_all_adlm_results <- read.csv("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/individual/exwas_PFAS_allpanel_adlm_q.csv") %>% filter (PFAS == "PFOS_Aug21_q")
+PFHxS_all_adlm_results <- read.csv("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/individual/exwas_PFAS_allpanel_adlm_q.csv") %>% filter (PFAS == "PFHxS_Aug21_q")
+PFNA_all_adlm_results <- read.csv("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/individual/exwas_PFAS_allpanel_adlm_q.csv") %>% filter (PFAS == "PFNA_Aug21_q")
+PFHpS_all_adlm_results <- read.csv("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/individual/exwas_PFAS_allpanel_adlm_q.csv") %>% filter (PFAS == "PFHpS_Aug21_q")
 
 
 
-length((PFHpS_all_adlm_results %>% filter(q.value<0.05 & Value > 0))$p.value)
-length((PFHpS_all_adlm_results %>% filter(q.value<0.05 & Value < 0))$p.value)
+length((PFHpS_all_adlm_results %>% filter(fdr<0.1 & Value > 0))$p.value)
+length((PFHpS_all_adlm_results %>% filter(fdr<0.1 & Value < 0))$p.value)
 
 
 
@@ -115,21 +115,20 @@ individual_pfas<- rbind(PFDA_all_adlm_results,
 #         arrange(desc(p.value))%>% 
 #         slice_head(n = 1)  %>%
 #         pull(p.value)
-
-                  
-cut_label<- 0.05
+           
 individual_pfas$Association <- "FDR > 0.05 & p.value > 0.05"
-individual_pfas$Association[individual_pfas$p.value < cut_label] <- "FDR > 0.05 & p.value < 0.05"
-individual_pfas$Association[individual_pfas$Value > 0 & individual_pfas$q.value < cut_label] <- "FDR < 0.05 (Positive)"
-individual_pfas$Association[individual_pfas$Value < 0 & individual_pfas$q.value < cut_label] <- "FDR < 0.05 (Negative)"
+individual_pfas$Association[individual_pfas$p.value < 0.05] <- "FDR > 0.05 & p.value < 0.05"
+individual_pfas$Association[individual_pfas$Value > 0 & individual_pfas$fdr < 0.05] <- "FDR < 0.05 (Positive)"
+individual_pfas$Association[individual_pfas$Value < 0 & individual_pfas$fdr < 0.05] <- "FDR < 0.05 (Negative)"
 
 
-length((individual_pfas %>% filter(q.value<0.05))$p.value)
+length((individual_pfas %>% filter(fdr<0.05 & Value > 0))$p.value)
+length((individual_pfas %>% filter(fdr<0.05 & Value < 0))$p.value)
 
 
 manhplot <- ggplot(individual_pfas, aes(x = PFAS, y = -log10(p.value),
                                         color = Association)) +
-            geom_hline(yintercept = -log(cut_label, base = 10), linewidth = 1.2,color = "grey40", linetype = "solid") + 
+            geom_hline(yintercept = -log(0.05, base = 10), linewidth = 1.2,color = "grey40", linetype = "solid") + 
             geom_label_repel(data = subset(individual_pfas, 
                                            sig %in% c(PFDA, PFOA, PFOS, PFHxS, PFHpS, PFNA)),
                              size = 6,
@@ -152,11 +151,11 @@ manhplot <- ggplot(individual_pfas, aes(x = PFAS, y = -log10(p.value),
               axis.text.y = element_text(size = 24, face = "bold"),
               axis.title=element_text(size=24,face="bold"))
 
+manhplot
 
 
 
-
-jpeg("~/Projects/BioMe/proteome/output/PFAS vs. all panels/multireg/imputed/manhat/manhplot.jpeg",
+jpeg("~/Projects/BioMe/proteome/output/PFAS vs. all panels/multireg/imputed/manhat/manhplot_0.05.jpeg",
      units="in", width=26, height=16, res=500)
 
 manhplot

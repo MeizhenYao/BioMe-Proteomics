@@ -42,9 +42,9 @@ start.time <- Sys.time()
 
 
 ##------------------------------------------- import data
-BioMe_proteome_PFAS_wide <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs/BioMe_proteome_PFAS_wide_imputed.txt")
-protein_in_panel <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs/protein_in_panel.txt")
-BioMe_proteome_PFAS_long <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs/BioMe_proteome_PFAS_long.txt")
+BioMe_proteome_PFAS_wide <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/BioMe_proteome_PFAS_wide.txt")
+protein_in_panel <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/protein_in_panel.txt")
+BioMe_proteome_PFAS_long <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/BioMe_proteome_PFAS_long.txt")
 
 ## protein 
 protein_in_allpanels<- protein_in_panel$OlinkID
@@ -201,8 +201,8 @@ bwqs_pfas_met_model$OlinkID <- protein
 bwqs_pfas_weight$OlinkID <- protein
 
 
-write.table(bwqs_pfas_met_model, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_scale/proteome_vs_pfas_bwqs_inflammation.txt", row.names = FALSE)
-write.table(bwqs_pfas_weight, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_scale/bwqs_pfas_weight_inflammation.txt", row.names = FALSE)
+write.table(bwqs_pfas_met_model, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_noimpute/proteome_vs_pfas_bwqs_inflammation.txt", row.names = FALSE)
+write.table(bwqs_pfas_weight, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_noimpute/bwqs_pfas_weight_inflammation.txt", row.names = FALSE)
 
 
 end.time <- Sys.time()

@@ -80,7 +80,7 @@ analysis_data_dummy<- as.data.frame(dummify(analysis_data))
 
 
 
-##------------------------------------------- bwqs model fitting
+##------------------------------------------- model fitting
 
 protein<- protein_in_panel$OlinkID
 

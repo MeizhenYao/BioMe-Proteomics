@@ -19,7 +19,7 @@ library(reactable)
 library(sandwich)
 library(ggrepel)
 library(mice)
-
+library(corrplot)
 
 
 ##------------------------------------------- import data
@@ -102,7 +102,7 @@ corr_fun<- function(data){
   
   corrplot(data, 
            method="color" ,
-           col = colorRampPalette(c("steelblue", "white", "darkred"))(100),cl.lim=c(0,1),
+           col = colorRampPalette(c("steelblue", "white", "darkred"))(100),
            type="upper",
            # order="hclust" ,
            tl.pos = 'tp',

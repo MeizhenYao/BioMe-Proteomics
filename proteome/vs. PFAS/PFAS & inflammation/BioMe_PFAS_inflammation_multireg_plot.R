@@ -18,7 +18,7 @@ library(sandwich)
 library(ggrepel)
 
 
-BioMe_proteome_PFAS_wide <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_wide_norm_imputed_v2.txt")
+BioMe_proteome_PFAS_wide <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_wide_imputed.txt")
 protein_in_panel <- fread("~/Projects/BioMe/proteome/input/analysis_sample/protein_in_panel.txt")
 
 
@@ -703,7 +703,7 @@ dev.off()
 
 
 ##------------------------------------------- adjusted
-PFHpA_inflam_adlm_results <- read.csv("~/Projects/BioMe/proteome/input/exwas/exwas_PFHpA_inflam_adlm_q.csv")
+PFHpA_inflam_adlm_results <- read.csv("~/Projects/BioMe/proteome/input/exwas/old/exwas_PFHpA_inflam_adlm_q.csv")
 d_lm_pfas_plot <- PFHpA_inflam_adlm_results
 cutoff <- 0.05
 d_lm_pfas_plot$Association <- "Null"
@@ -730,7 +730,7 @@ vol <- (ggplot(d_lm_pfas_plot, aes(x=Value, y=-log10(p.value), col=Association))
           geom_point(size=2) +
           geom_hline(yintercept= -log(cutoff, base = 10), color = "black", size = 1) + 
           # geom_hline(yintercept= -log(cut_label, base = 10), color = "green", size = 1) + 
-          labs(x = "Beta Coefficients", title = "Adjusted regression: PFHpA vs. Inflammation Proteome") +
+          labs(x = "Beta Coefficients", title = "Figure 4. Associations of PFHpA Exposure with Inflammation-Related Proteins") +
           geom_label_repel(data = subset(d_lm_pfas_plot, 
                                          Protein_name %in% top_5_name),
                            aes(label = Protein_name),
@@ -744,11 +744,11 @@ vol <- (ggplot(d_lm_pfas_plot, aes(x=Value, y=-log10(p.value), col=Association))
 
 
 volcano_pos_pfas_met <- vol + theme(legend.position = "none",
-                                    plot.title = element_text(size = 24, face = "bold"),
-                                    axis.title.x = element_text(size = 20, face = "bold"),
-                                    axis.title.y = element_text(size = 20, face = "bold"),
-                                    axis.text.x= element_text(size = 18, face = "bold"),
-                                    axis.text.y = element_text(size = 18, face = "bold"))
+                                    plot.title = element_text(size = 32, face = "bold"),
+                                    axis.title.x = element_text(size = 32, face = "bold"),
+                                    axis.title.y = element_text(size = 32, face = "bold"),
+                                    axis.text.x= element_text(size = 32, face = "bold"),
+                                    axis.text.y = element_text(size = 32, face = "bold"))
 
 
 
@@ -756,7 +756,7 @@ volcano_pos_pfas_met <- vol + theme(legend.position = "none",
 
 
 jpeg("~/Projects/BioMe/proteome/output/PFAS vs. inflammation/multireg/tertile/adjusted/PFHpA_inflammation_adlm_q.jpeg",
-     units="in", width=16, height=12, res=500)
+     units="in", width=18, height=12, res=500)
 
 volcano_pos_pfas_met
 

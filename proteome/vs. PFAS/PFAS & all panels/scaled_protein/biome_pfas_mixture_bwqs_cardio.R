@@ -42,9 +42,9 @@ start.time <- Sys.time()
 
 
 ##------------------------------------------- import data
-BioMe_proteome_PFAS_wide <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs/BioMe_proteome_PFAS_wide_imputed.txt")
-protein_in_panel <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs/protein_in_panel.txt")
-BioMe_proteome_PFAS_long <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs/BioMe_proteome_PFAS_long.txt")
+BioMe_proteome_PFAS_wide <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/BioMe_proteome_PFAS_wide.txt")
+protein_in_panel <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/protein_in_panel.txt")
+BioMe_proteome_PFAS_long <- fread("/sc/arion/work/yaom03/biome_proteome/pfas_proteome/BioMe_proteome_PFAS_long.txt")
 
 ## protein 
 protein_in_allpanels<- protein_in_panel$OlinkID
@@ -132,7 +132,7 @@ for(n in 1:N){
 "
 m_lasso_data_challenge <- rstan::stan_model(model_code =  model_bwqs_gaussian_lasso)
 
-data = bwqs_data_dummy
+
 
 bwqs_pfas_met_model <- data.frame(mean = NA_real_, se_mean = NA_real_, sd = NA_real_,
                                   lower = NA_real_, upper = NA_real_, n_eff = NA_real_,
@@ -141,11 +141,12 @@ bwqs_pfas_met_model <- data.frame(mean = NA_real_, se_mean = NA_real_, sd = NA_r
 bwqs_pfas_weight<- data.frame(w1 = NA_real_, w2 = NA_real_, w3 = NA_real_,
                               w4 = NA_real_, w5 = NA_real_, w6 = NA_real_)
 
-
 start.time <- Sys.time()
 
 for(i in 1:length(protein)){
   ## specify parameter
+  data = bwqs_data_dummy[complete.cases(bwqs_data_dummy[,protein[i]]),]
+  
   y_name  <- protein[i]
   formula = as.formula( ~ self_reported_race.African.American
                         + self_reported_race.European.American + age_at_enrollment
@@ -155,11 +156,11 @@ for(i in 1:length(protein)){
   KV_name <- all.vars(formula)
   mix_name_1 <- name_data_wqs
   
-  X1 = bwqs_data_dummy[,name_data_wqs]
+  X1 = data[,name_data_wqs]
   
   data_reg <- list(
     
-    N   = nrow(bwqs_data_dummy),
+    N   = nrow(data),
     C1  = length(mix_name_1),
     XC1 = cbind(X1),
     DalpC1 = rep(1, length(mix_name_1)),
@@ -201,8 +202,8 @@ bwqs_pfas_met_model$OlinkID <- protein
 bwqs_pfas_weight$OlinkID <- protein
 
 
-write.table(bwqs_pfas_met_model, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_scale/proteome_vs_pfas_bwqs_cardio.txt", row.names = FALSE)
-write.table(bwqs_pfas_weight, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_scale/bwqs_pfas_weight_cardio.txt", row.names = FALSE)
+write.table(bwqs_pfas_met_model, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_noimpute/proteome_vs_pfas_bwqs_cardio.txt", row.names = FALSE)
+write.table(bwqs_pfas_weight, "/sc/arion/work/yaom03/biome_proteome/pfas_proteome/bwqs_noimpute/bwqs_pfas_weight_cardio.txt", row.names = FALSE)
 
 
 end.time <- Sys.time()
