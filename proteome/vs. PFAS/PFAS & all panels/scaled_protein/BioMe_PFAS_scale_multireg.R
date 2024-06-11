@@ -22,7 +22,6 @@ library(corrplot)
 ##------------------------------------------- import data
 BioMe_proteome_PFAS_wide <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_wide_imputed.txt")
 protein_in_panel <- fread("~/Projects/BioMe/proteome/input/analysis_sample/protein_in_panel.txt")
-BioMe_proteome_PFAS_long <- fread("~/Projects/BioMe/proteome/input/analysis_sample/BioMe_proteome_PFAS_long.txt")
 
 
 
@@ -39,6 +38,13 @@ protein_in_allpanels<- protein_in_panel$OlinkID
 BioMe_proteome_PFAS_wide<- BioMe_proteome_PFAS_wide %>% 
                            mutate_at(protein_in_allpanels, ~(scale(.) %>% as.vector))
 
+
+## PFAS
+PFAS_name<- c("PFDA_Aug21_q","PFHxS_Aug21_q","PFHpS_Aug21_q","PFNA_Aug21_q","PFOA_Aug21_q",
+               "PFOS_Aug21_q")
+
+## covariates
+covariates_name<-  c("self_reported_race", "age_at_enrollment", "sex", "c_date_enrl")
 
 ## PFHpA binary formate
 BioMe_proteome_PFAS_wide$PFHpA_Aug21_bi<- factor(BioMe_proteome_PFAS_wide$PFHpA_Aug21_bi,
@@ -122,13 +128,16 @@ BioMe_proteome_PFAS_wide_control<- BioMe_proteome_PFAS_wide %>%
 ## function for model fit
 ##########################
 
-lm_fit_info<- function(protein, data, data_in_long, covariates, path){
+
+lm_fit_info<- function(protein, expo_names, data, annotation, covariates, path){
   
-  PFAS_lm <- data.frame(OlinkID = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
+  PFAS_lm <- data.frame(OlinkID = NA_character_, PFAS = NA_character_, Value = NA_real_, Std.Error = NA_real_, z.value = NA_real_ , p.value = NA_real_)
   
   for(i in 1:length(protein)){
     
-    s_lm <- (lm(as.formula(paste0(protein[i], covariates)), 
+    for (j in 1:length(expo_names)) {
+    
+    s_lm <- (lm(as.formula(paste0(protein[i], "~", expo_names[j], "+", paste(covariates, collapse = " +"))), 
                 data = data, weights = ipw))
     
     cov.m1 <- vcovHC(s_lm, type = "HC3")
@@ -142,23 +151,31 @@ lm_fit_info<- function(protein, data, data_in_long, covariates, path){
       , "Pr(>|z|) "= 2 * pnorm(abs(coef(s_lm)/std.err), lower.tail = FALSE))
     
     
-    PFAS_lm <- rbind(PFAS_lm, c(protein[i], as.numeric(r.est[2, c(1, 2, 3, 4)])))
+    PFAS_lm <- rbind(PFAS_lm, c(protein[i], expo_names[j], as.numeric(r.est[2, c(1, 2, 3, 4)])))
+    }
+    
   }
   
   
   
+    
+    
   PFAS_lm <- PFAS_lm[-1,]
   PFAS_lm$z.value <- as.numeric(PFAS_lm$z.value)
   PFAS_lm$p.value <- as.numeric(PFAS_lm$p.value)
-  PFAS_lm$fdr <- as.numeric(p.adjust(PFAS_lm$p.value, method="fdr"))
   
   
-  q <- qvalue::qvalue(as.numeric(PFAS_lm$p.value), lambda=0)
-  PFAS_lm$q.value <-  q$qvalues
   
+  PFAS_lm<- PFAS_lm %>% 
+            group_by(PFAS) %>% 
+            mutate(fdr = as.numeric(p.adjust(p.value, method="fdr"))) %>% 
+            ungroup()
+  
+
+
   
   PFAS_lm_results<- PFAS_lm %>% 
-    left_join(data_in_long[,c("OlinkID", "Protein_name", "UniProt")], by="OlinkID") %>% 
+    left_join(annotation[,c("OlinkID", "Protein_name", "UniProt")], by="OlinkID") %>% 
     distinct()
   
   write.csv(PFAS_lm_results,
@@ -170,157 +187,35 @@ lm_fit_info<- function(protein, data, data_in_long, covariates, path){
 ##########################
 
 #-------------------------------------------------- whole sample
-#----------------------- Continuous PFDA - quartile
-##---------------------- Adjusted
 
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide, BioMe_proteome_PFAS_long, 
-            "~ PFDA_Aug21_q + self_reported_race + age_at_enrollment + sex  + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFDA_allpanel_adlm_q.csv")
+lm_fit_info(protein_in_allpanels, PFAS_name, BioMe_proteome_PFAS_wide, protein_in_panel, covariates_name,
+            "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/individual/exwas_PFAS_allpanel_adlm_q.csv")
 
 
-#----------------------- Continuous PFOA - quartile
-##---------------------- Adjusted
 
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide, BioMe_proteome_PFAS_long, 
-            "~ PFOA_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFOA_allpanel_adlm_q.csv")
+proteome_vs_pfas <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/individual/exwas_PFAS_allpanel_adlm_q.csv")
 
 
-#----------------------- Continuous PFOS - quartile
-##---------------------- Adjusted
+PFDA<- proteome_vs_pfas %>% 
+       filter(PFAS == "PFDA_Aug21_q")
+PFOA<- proteome_vs_pfas %>% 
+  filter(PFAS == "PFOA_Aug21_q")
+PFNA<- proteome_vs_pfas %>% 
+  filter(PFAS == "PFNA_Aug21_q")
+PFOS<- proteome_vs_pfas %>% 
+  filter(PFAS == "PFOS_Aug21_q")
+PFHpS<- proteome_vs_pfas %>% 
+  filter(PFAS == "PFHpS_Aug21_q")
+PFHxS<- proteome_vs_pfas %>% 
+  filter(PFAS == "PFHxS_Aug21_q")
 
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide, BioMe_proteome_PFAS_long, 
-            "~ PFOS_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFOS_allpanel_adlm_q.csv")
+write_xlsx(PFDA, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/individual/PFDA.xlsx")
+write_xlsx(PFOA, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/individual/PFOA.xlsx")
+write_xlsx(PFNA, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/individual/PFNA.xlsx")
+write_xlsx(PFHpS, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/individual/PFHpS.xlsx")
+write_xlsx(PFOS, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/individual/PFOS.xlsx")
+write_xlsx(PFHxS, "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/individual/PFHxS.xlsx")
 
-
-
-#----------------------- Continuous PFHxS - quartile
-#---------------------- Adjusted
-
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide, BioMe_proteome_PFAS_long, 
-            "~ PFHxS_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHxS_allpanel_adlm_q.csv")
-
-
-
-#----------------------- Continuous PFNA - quartile
-##---------------------- Adjusted
-
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide, BioMe_proteome_PFAS_long, 
-            "~ PFNA_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFNA_allpanel_adlm_q.csv")
-
-
-
-#----------------------- Continuous PFHpS - quartile
-##---------------------- Adjusted
-
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide, BioMe_proteome_PFAS_long, 
-            "~ PFHpS_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHpS_allpanel_adlm_q.csv")
-
-#----------------------- Continuous PFHpA - binary
-##---------------------- Adjusted
-
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide, BioMe_proteome_PFAS_long, 
-            "~ PFHpA_Aug21_bi + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHpA_allpanel_adlm_bi.csv")
-
-#-------------------------------------------------- in case
-#----------------------- Continuous PFDA - quartile
-##---------------------- Adjusted
-
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_case, BioMe_proteome_PFAS_long, 
-            "~ PFDA_Aug21_q + self_reported_race + age_at_enrollment + sex  + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFDA_allpanel_adlm_q_case.csv")
-
-
-#----------------------- Continuous PFOA - quartile
-##---------------------- Adjusted
-
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_case, BioMe_proteome_PFAS_long, 
-            "~ PFOA_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFOA_allpanel_adlm_q_case.csv")
-
-
-#----------------------- Continuous PFOS - quartile
-##---------------------- Adjusted
-
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_case, BioMe_proteome_PFAS_long, 
-            "~ PFOS_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFOS_allpanel_adlm_q_case.csv")
-
-
-
-#----------------------- Continuous PFHxS - quartile
-#---------------------- Adjusted
-
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_case, BioMe_proteome_PFAS_long, 
-            "~ PFHxS_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHxS_allpanel_adlm_q_case.csv")
-
-
-
-#----------------------- Continuous PFNA - quartile
-##---------------------- Adjusted
-
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_case, BioMe_proteome_PFAS_long, 
-            "~ PFNA_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFNA_allpanel_adlm_q_case.csv")
-
-
-
-#----------------------- Continuous PFHpS - quartile
-##---------------------- Adjusted
-
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_case, BioMe_proteome_PFAS_long, 
-            "~ PFHpS_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHpS_allpanel_adlm_q_case.csv")
-
-#----------------------- Continuous PFHpA - binary
-##---------------------- Adjusted
-
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_case, BioMe_proteome_PFAS_long, 
-            "~ PFHpA_Aug21_bi + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHpA_allpanel_adlm_bi_case.csv")
-
-#-------------------------------------------------- in control
-#----------------------- Continuous PFDA - quartile
-##---------------------- Adjusted
-
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_control, BioMe_proteome_PFAS_long, 
-            "~ PFDA_Aug21_q + self_reported_race + age_at_enrollment + sex  + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFDA_allpanel_adlm_q_control.csv")
-
-
-#----------------------- Continuous PFOA - quartile
-##---------------------- Adjusted
-
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_control, BioMe_proteome_PFAS_long, 
-            "~ PFOA_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFOA_allpanel_adlm_q_control.csv")
-
-
-#----------------------- Continuous PFOS - quartile
-##---------------------- Adjusted
-
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_control, BioMe_proteome_PFAS_long, 
-            "~ PFOS_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFOS_allpanel_adlm_q_control.csv")
-
-
-
-#----------------------- Continuous PFHxS - quartile
-#---------------------- Adjusted
-
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_control, BioMe_proteome_PFAS_long, 
-            "~ PFHxS_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHxS_allpanel_adlm_q_control.csv")
-
-
-
-#----------------------- Continuous PFNA - quartile
-##---------------------- Adjusted
-
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_control, BioMe_proteome_PFAS_long, 
-            "~ PFNA_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFNA_allpanel_adlm_q_control.csv")
-
-
-
-#----------------------- Continuous PFHpS - quartile
-##---------------------- Adjusted
-
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_control, BioMe_proteome_PFAS_long, 
-            "~ PFHpS_Aug21_q + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHpS_allpanel_adlm_q_control.csv")
-
-#----------------------- Continuous PFHpA - binary
-##---------------------- Adjusted
-
-lm_fit_info(protein_in_allpanels, BioMe_proteome_PFAS_wide_control, BioMe_proteome_PFAS_long, 
-            "~ PFHpA_Aug21_bi + self_reported_race + age_at_enrollment + sex + c_date_enrl", "~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/exwas_PFHpA_allpanel_adlm_bi_control.csv")
 
 
 
