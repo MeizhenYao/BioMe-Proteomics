@@ -19,8 +19,9 @@ library(ggrepel)
 
 
 ##------------------------------------------- import data
-proteome_vs_pfas_bwqs <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/scale/proteome_vs_pfas_bwqs.txt")
-bwqs_pfas_weight <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/scale/bwqs_pfas_weight.txt")
+proteome_vs_pfas_bwqs <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/nonimputed/proteome_vs_pfas_bwqs.txt")
+bwqs_pfas_weight <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/nonimputed/bwqs_pfas_weight.txt")
+
 proteome_vs_pfas_bwqs_case <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/proteome_vs_pfas_bwqs_case.txt")
 bwqs_pfas_weight_case <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/case_scale/bwqs_pfas_weight_case.txt")
 proteome_vs_pfas_bwqs_control <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/control_scale/proteome_vs_pfas_bwqs_control.txt")
@@ -81,7 +82,7 @@ volcano_pos_pfas_met <- vol + theme(plot.title = element_text(size = 24, face = 
                                     axis.title=element_text(size=22,face="bold"))
 
 
-jpeg("~/Projects/BioMe/proteome/output/PFAS vs. all panels/bwqs/scale/bwqs_all_weight_heatmap.jpeg",
+jpeg("~/Projects/BioMe/proteome/output/PFAS vs. all panels/bwqs/nonimputed/bwqs_all_weight_heatmap.jpeg",
      units="in", width=16, height=12, res=500)
 
 volcano_pos_pfas_met
