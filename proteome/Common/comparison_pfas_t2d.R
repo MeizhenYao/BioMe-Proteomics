@@ -19,8 +19,8 @@ library(ggrepel)
 
 
 ##------------------------------------------- q.value
-proteome_vs_pfas_bwqs <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/batch_imputed/bwqs/scale/proteome_vs_pfas_bwqs.txt")
-proteome_t2d_model <- fread("~/Projects/BioMe/proteome/input/pwas/proteome_vs_t2d_scale.txt")
+proteome_vs_pfas_bwqs <- fread("~/Projects/BioMe/proteome/input/exwas/all panels/nonimputed/proteome_vs_pfas_bwqs.txt")
+proteome_t2d_model <- fread("~/Projects/BioMe/proteome/input/pwas/nonimputed/proteome_vs_t2d_scale.txt")
 protein_in_panel <- fread("~/Projects/BioMe/proteome/input/analysis_sample/protein_in_panel.txt")
 
 
@@ -100,7 +100,7 @@ pfas_t2d_value<- data.frame(proteome_pfas_value,
                             proteome_t2d_value)
 
 
-write.csv(pfas_t2d_value, "~/Projects/BioMe/proteome/input/comparison/pfas_t2d_pvalue.csv", row.names = FALSE)
+write.csv(pfas_t2d_value, "~/Projects/BioMe/proteome/input/comparison/nonimputed/pfas_t2d_pvalue.csv", row.names = FALSE)
 
 
 
